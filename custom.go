@@ -22,7 +22,7 @@ func rejectEvent(ctx context.Context, event *nostr.Event) (reject bool, msg stri
 	}
 
 	// function to get values back from js to here
-	qjs.Globals().Set("grab", qjs.Function(func(qjs *quickjs.Context, this quickjs.Value, args []quickjs.Value) quickjs.Value {
+	qjs.Globals().Set("____grab", qjs.Function(func(qjs *quickjs.Context, this quickjs.Value, args []quickjs.Value) quickjs.Value {
 		if args[0].IsString() {
 			reject = true
 			msg = args[0].String()
@@ -58,7 +58,7 @@ func rejectEvent(ctx context.Context, event *nostr.Event) (reject bool, msg stri
 	val, err = qjs.Eval(`
 import rejectEvent from './reject-event.js'
 let msg = rejectEvent(event)
-grab(msg)
+____grab(msg)
 	`, quickjs.EVAL_MODULE)
 	defer val.Free()
 	if err != nil {
