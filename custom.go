@@ -9,6 +9,59 @@ import (
 )
 
 func rejectEvent(ctx context.Context, event *nostr.Event) (reject bool, msg string) {
+	return runAndGetResult("scripts/reject-event.js", func(qjs *quickjs.Context) quickjs.Value {
+		// first argument: the nostr event object we'll pass to the script
+		jsEvent := qjs.Object()
+		jsEvent.Set("id", qjs.String(event.ID))
+		jsEvent.Set("pubkey", qjs.String(event.PubKey))
+		jsEvent.Set("sig", qjs.String(event.Sig))
+		jsEvent.Set("content", qjs.String(event.Content))
+		jsEvent.Set("kind", qjs.Int32(int32(event.Kind)))
+		jsEvent.Set("created_at", qjs.Int64(int64(event.CreatedAt)))
+		jsTags := qjs.Array()
+		for i, tag := range event.Tags {
+			jsTags.SetByUint32(uint32(i), qjsStringArray(qjs, tag))
+		}
+		jsEvent.Set("tags", jsTags)
+		return jsEvent
+	})
+}
+
+func rejectFilter(ctx context.Context, filter nostr.Filter) (reject bool, msg string) {
+	return runAndGetResult("scripts/reject-filter.js", func(qjs *quickjs.Context) quickjs.Value {
+		// first argument: the nostr filter object we'll pass to the script
+		jsFilter := qjs.Object()
+
+		if len(filter.IDs) > 0 {
+			jsFilter.Set("ids", qjsStringArray(qjs, filter.IDs))
+		}
+		if len(filter.Authors) > 0 {
+			jsFilter.Set("authors", qjsStringArray(qjs, filter.Authors))
+		}
+		if len(filter.Kinds) > 0 {
+			jsFilter.Set("kinds", qjsIntArray(qjs, filter.Kinds))
+		}
+		for tag, values := range filter.Tags {
+			jsFilter.Set("#"+tag, qjsStringArray(qjs, values))
+		}
+		if filter.Limit > 0 {
+			jsFilter.Set("limit", qjs.Int32(int32(filter.Limit)))
+		}
+		if filter.Since != nil {
+			jsFilter.Set("since", qjs.Int64(int64(*filter.Since)))
+		}
+		if filter.Until != nil {
+			jsFilter.Set("until", qjs.Int64(int64(*filter.Until)))
+		}
+		if filter.Search != "" {
+			jsFilter.Set("search", qjs.String(filter.Search))
+		}
+
+		return jsFilter
+	})
+}
+
+func runAndGetResult(scriptPath string, makeArgs ...func(qjs *quickjs.Context) quickjs.Value) (reject bool, msg string) {
 	rt := quickjs.NewRuntime()
 	defer rt.Free()
 
@@ -30,40 +83,46 @@ func rejectEvent(ctx context.Context, event *nostr.Event) (reject bool, msg stri
 		return qjs.Undefined()
 	}))
 
-	// build the nostr event object we'll pass to the script
-	jsEvent := qjs.Object()
-	jsEvent.Set("id", qjs.String(event.ID))
-	jsEvent.Set("pubkey", qjs.String(event.PubKey))
-	jsEvent.Set("sig", qjs.String(event.Sig))
-	jsEvent.Set("content", qjs.String(event.Content))
-	jsEvent.Set("kind", qjs.Int32(int32(event.Kind)))
-	jsEvent.Set("created_at", qjs.Int64(int64(event.CreatedAt)))
-	jsTags := qjs.Array()
-	for i, tag := range event.Tags {
-		jsTag := qjs.Array()
-		for j, item := range tag {
-			jsTag.SetByUint32(uint32(j), qjs.String(item))
-		}
-		jsTags.SetByUint32(uint32(i), jsTag)
+	// globals
+	args := qjs.Array()
+	for i, makeArg := range makeArgs {
+		args.SetByUint32(uint32(i), makeArg(qjs))
 	}
-	jsEvent.Set("tags", jsTags)
-	qjs.Globals().Set("event", jsEvent)
+	qjs.Globals().Set("args", args)
 
 	val, err := qjs.EvalFile(string(code), quickjs.EVAL_MODULE, "reject-event.js")
 	defer val.Free()
 	if err != nil {
+		log.Warn().Err(err).Str("script", scriptPath).Msg("error reading policy script")
 		return true, "error reading policy script"
 	}
 
 	val, err = qjs.Eval(`
-import rejectEvent from './reject-event.js'
-let msg = rejectEvent(event)
+import rejectEvent from './`+scriptPath+`'
+let msg = rejectEvent(...args)
 ____grab(msg)
 	`, quickjs.EVAL_MODULE)
 	defer val.Free()
 	if err != nil {
+		log.Warn().Err(err).Str("script", scriptPath).Msg("error applying policy script")
 		return true, "error applying policy script"
 	}
 
 	return reject, msg
+}
+
+func qjsStringArray(qjs *quickjs.Context, src []string) quickjs.Value {
+	arr := qjs.Array()
+	for j, item := range src {
+		arr.SetByUint32(uint32(j), qjs.String(item))
+	}
+	return arr
+}
+
+func qjsIntArray(qjs *quickjs.Context, src []int) quickjs.Value {
+	arr := qjs.Array()
+	for j, item := range src {
+		arr.SetByUint32(uint32(j), qjs.Int32(int32(item)))
+	}
+	return arr
 }

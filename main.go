@@ -49,12 +49,14 @@ func main() {
 	}
 	relay.StoreEvent = append(relay.StoreEvent, db.SaveEvent)
 	relay.QueryEvents = append(relay.QueryEvents, db.QueryEvents)
-	relay.CountEvents = append(relay.CountEvents, db.CountEvents)
 	relay.DeleteEvent = append(relay.DeleteEvent, db.DeleteEvent)
 
 	// custom policies
 	relay.RejectEvent = append(relay.RejectEvent,
 		rejectEvent,
+	)
+	relay.RejectFilter = append(relay.RejectFilter,
+		rejectFilter,
 	)
 
 	// other http handlers
