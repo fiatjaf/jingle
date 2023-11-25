@@ -5,6 +5,9 @@ import (
 	"net/http"
 	"os"
 
+	"github.com/fiatjaf/eventstore"
+	"github.com/fiatjaf/eventstore/badger"
+	"github.com/fiatjaf/eventstore/lmdb"
 	"github.com/fiatjaf/eventstore/sqlite3"
 	"github.com/fiatjaf/khatru"
 	"github.com/kelseyhightower/envconfig"
@@ -17,12 +20,11 @@ type Settings struct {
 	Host             string `envconfig:"HOST" default:""`
 	Port             string `envconfig:"PORT" default:"5577"`
 	Domain           string `envconfig:"DOMAIN"`
-	RelayName        string `envconfig:"RELAY_NAME"`
-	RelayPubkey      string `envconfig:"RELAY_PUBKEY"`
-	RelayDescription string `envconfig:"RELAY_DESCRIPTION"`
-	RelayContact     string `envconfig:"RELAY_CONTACT"`
-	RelayIcon        string `envconfig:"RELAY_ICON"`
-	DatabasePath     string `envconfig:"DATABASE_PATH" default:"./db"`
+	RelayName        string `envconfig:"RELAY_NAME" default:"my custom relay"`
+	RelayPubkey      string `envconfig:"RELAY_PUBKEY" default:"79be667ef9dcbbac55a06295ce870b07029bfcdb2dce28d959f2815b16f81798"`
+	RelayDescription string `envconfig:"RELAY_DESCRIPTION" default:"experimental, do not use"`
+	RelayIcon        string `envconfig:"RELAY_ICON" default:"http://icons.iconarchive.com/icons/paomedia/small-n-flat/512/bell-icon.png"`
+	DatabaseURL      string `envconfig:"DATABASE_URL"`
 }
 
 var (
@@ -73,6 +75,18 @@ func main() {
 				Usage: "relay owner pubkey",
 				Value: s.RelayPubkey,
 			},
+			&cli.StringFlag{
+				Name:    "database",
+				Aliases: []string{"db"},
+				Usage:   "what database to use as a backend ('sqlite', 'lmdb' or 'badger')",
+				Value:   "sqlite",
+			},
+			&cli.StringFlag{
+				Name:    "database-url",
+				Aliases: []string{"database-path", "dbpath"},
+				Usage:   "path where to save the database files",
+				Value:   "./data",
+			},
 		},
 		ArgsUsage: "",
 		Action: func(c *cli.Context) error {
@@ -95,16 +109,25 @@ func main() {
 			}
 
 			// relay metadata
-			relay.Info.Name = s.RelayName
-			relay.Info.PubKey = s.RelayPubkey
-			relay.Info.Description = s.RelayDescription
-			relay.Info.Contact = s.RelayContact
-			relay.Info.Icon = s.RelayIcon
+			relay.Info.Name = c.String("name")
+			relay.Info.PubKey = c.String("pubkey")
+			relay.Info.Description = c.String("description")
+			relay.Info.Icon = c.String("icon")
 
-			// basic relay methods
-			db := sqlite3.SQLite3Backend{DatabaseURL: s.DatabasePath}
+			// basic relay methods with custom stores
+			var db eventstore.Store
+			switch c.String("database") {
+			case "sqlite", "sqlite3":
+				db = &sqlite3.SQLite3Backend{DatabaseURL: c.String("database-url")}
+			case "lmdb":
+				db = &lmdb.LMDBBackend{Path: c.String("database-url")}
+			case "badger":
+				db = &badger.BadgerBackend{Path: c.String("database-url")}
+			default:
+				return fmt.Errorf("unknown option '%s' for database", c.String("database"))
+			}
 			if err := db.Init(); err != nil {
-				panic(err)
+				return fmt.Errorf("failed to initialize database: %w", err)
 			}
 			relay.StoreEvent = append(relay.StoreEvent, db.SaveEvent)
 			relay.QueryEvents = append(relay.QueryEvents, db.QueryEvents)
