@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"net/http"
 	"os"
+	"path/filepath"
 
 	"github.com/fiatjaf/eventstore"
 	"github.com/fiatjaf/eventstore/badger"
@@ -117,20 +118,27 @@ func main() {
 			relay.Info.Icon = c.String("icon")
 
 			// basic relay methods with custom stores
+			dbpath := c.String("database-url")
+			os.MkdirAll(dbpath, 0700)
 			var db eventstore.Store
 			switch c.String("database") {
 			case "sqlite", "sqlite3":
-				db = &sqlite3.SQLite3Backend{DatabaseURL: c.String("database-url")}
+				dbpath = filepath.Join(dbpath, "sqlite")
+				db = &sqlite3.SQLite3Backend{DatabaseURL: dbpath}
 			case "lmdb":
-				db = &lmdb.LMDBBackend{Path: c.String("database-url")}
+				dbpath = filepath.Join(dbpath, "lmdb")
+				db = &lmdb.LMDBBackend{Path: dbpath}
 			case "badger":
-				db = &badger.BadgerBackend{Path: c.String("database-url")}
+				dbpath = filepath.Join(dbpath, "badger")
+				db = &badger.BadgerBackend{Path: dbpath}
 			default:
 				return fmt.Errorf("unknown option '%s' for database", c.String("database"))
 			}
 			if err := db.Init(); err != nil {
 				return fmt.Errorf("failed to initialize database: %w", err)
 			}
+			log.Info().Msgf("storing data with %s under ./%s", c.String("database"), dbpath)
+
 			relay.StoreEvent = append(relay.StoreEvent, db.SaveEvent)
 			relay.QueryEvents = append(relay.QueryEvents, db.QueryEvents)
 			relay.DeleteEvent = append(relay.DeleteEvent, db.DeleteEvent)
