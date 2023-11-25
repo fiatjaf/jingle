@@ -94,26 +94,6 @@ func main() {
 				}
 			}
 
-			// use cli arguments
-			if port := c.String("port"); port != "" {
-				s.Port = port
-			}
-			if host := c.String("host"); host != "" {
-				s.Host = host
-			}
-			if name := c.String("name"); name != "" {
-				s.RelayName = name
-			}
-			if description := c.String("description"); description != "" {
-				s.RelayDescription = description
-			}
-			if icon := c.String("icon"); icon != "" {
-				s.RelayIcon = icon
-			}
-			if pubkey := c.String("pubkey"); pubkey != "" {
-				s.RelayPubkey = pubkey
-			}
-
 			// relay metadata
 			relay.Info.Name = s.RelayName
 			relay.Info.PubKey = s.RelayPubkey
