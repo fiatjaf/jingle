@@ -27,10 +27,15 @@ var defaultScripts = map[scriptPath]string{
   if (event.tags.length > 0) return 'notes cannot have tags'
 }`,
 	REJECT_FILTER: `export default function (filter) {
-  if ((filter.authors?.length || 0) === 0)
-    return 'must specify an author to query, sync bots not allowed'
-  if (filter.authors?.length > 30)
-    return 'too many authors in filter, this may be a badly written client logic'
+  return fetch(
+    'https://www.random.org/integers/?num=1&min=1&max=9&col=1&base=10&format=plain&rnd=new'
+  )
+    .then(r => r.text())
+    .then(res => {
+      if (parseInt(res) > 4)
+        return ` + "`" + `you were not lucky enough: got ${res.trim()} but needed 4 or less` + "`" + `
+      return null
+    })
 }`,
 }
 
