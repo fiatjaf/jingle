@@ -8,8 +8,30 @@ import (
 	"github.com/quickjs-go/quickjs-go"
 )
 
+type scriptPath string
+
+const (
+	REJECT_EVENT  scriptPath = "scripts/reject-event.js"
+	REJECT_FILTER scriptPath = "scripts/reject-filter.js"
+)
+
+var defaultScripts = map[scriptPath]string{
+	REJECT_EVENT: `export default function (event) {
+  if (event.kind !== 1) return 'we only accept kind:1 notes'
+  if (event.content.length > 140)
+    return 'notes must have up to 140 characters only'
+  if (event.tags.length > 0) return 'notes cannot have tags'
+}`,
+	REJECT_FILTER: `export default function (filter) {
+  if ((filter.authors?.length || 0) === 0)
+    return 'must specify an author to query, sync bots not allowed'
+  if (filter.authors?.length > 30)
+    return 'too many authors in filter, this may be a badly written client logic'
+}`,
+}
+
 func rejectEvent(ctx context.Context, event *nostr.Event) (reject bool, msg string) {
-	return runAndGetResult("scripts/reject-event.js", func(qjs *quickjs.Context) quickjs.Value {
+	return runAndGetResult(REJECT_EVENT, func(qjs *quickjs.Context) quickjs.Value {
 		// first argument: the nostr event object we'll pass to the script
 		jsEvent := qjs.Object()
 		jsEvent.Set("id", qjs.String(event.ID))
@@ -28,7 +50,7 @@ func rejectEvent(ctx context.Context, event *nostr.Event) (reject bool, msg stri
 }
 
 func rejectFilter(ctx context.Context, filter nostr.Filter) (reject bool, msg string) {
-	return runAndGetResult("scripts/reject-filter.js", func(qjs *quickjs.Context) quickjs.Value {
+	return runAndGetResult(REJECT_FILTER, func(qjs *quickjs.Context) quickjs.Value {
 		// first argument: the nostr filter object we'll pass to the script
 		jsFilter := qjs.Object()
 
@@ -61,7 +83,7 @@ func rejectFilter(ctx context.Context, filter nostr.Filter) (reject bool, msg st
 	})
 }
 
-func runAndGetResult(scriptPath string, makeArgs ...func(qjs *quickjs.Context) quickjs.Value) (reject bool, msg string) {
+func runAndGetResult(scriptPath scriptPath, makeArgs ...func(qjs *quickjs.Context) quickjs.Value) (reject bool, msg string) {
 	rt := quickjs.NewRuntime()
 	defer rt.Free()
 
@@ -93,22 +115,18 @@ func runAndGetResult(scriptPath string, makeArgs ...func(qjs *quickjs.Context) q
 	val, err := qjs.EvalFile(string(code), quickjs.EVAL_MODULE, "reject-event.js")
 	defer val.Free()
 	if err != nil {
-		log.Warn().Err(err).Str("script", scriptPath).Msg("error reading policy script")
+		log.Warn().Err(err).Str("script", string(scriptPath)).Msg("error reading policy script")
 		return true, "error reading policy script"
 	}
 
 	val, err = qjs.Eval(`
-import rejectEvent from './`+scriptPath+`'
+import rejectEvent from './`+string(scriptPath)+`'
 let msg = rejectEvent(...args)
-if (msg.then) {
-  msg.then(____grab)
-} else {
-  ____grab(msg)
-}
+____grab(msg)
 	`, quickjs.EVAL_MODULE)
 	defer val.Free()
 	if err != nil {
-		log.Warn().Err(err).Str("script", scriptPath).Msg("error applying policy script")
+		log.Warn().Err(err).Str("script", string(scriptPath)).Msg("error applying policy script")
 		return true, "error applying policy script"
 	}
 
