@@ -46,3 +46,5 @@ require (
 )
 
 replace github.com/fiatjaf/khatru => /home/fiatjaf/comp/khatru
+
+replace github.com/quickjs-go/quickjs-go => /home/fiatjaf/comp/quickjs-go

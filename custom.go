@@ -2,7 +2,9 @@ package main
 
 import (
 	"context"
+	"fmt"
 	"os"
+	"runtime"
 
 	"github.com/nbd-wtf/go-nostr"
 	"github.com/quickjs-go/quickjs-go"
@@ -62,6 +64,9 @@ func rejectFilter(ctx context.Context, filter nostr.Filter) (reject bool, msg st
 }
 
 func runAndGetResult(scriptPath string, makeArgs ...func(qjs *quickjs.Context) quickjs.Value) (reject bool, msg string) {
+	runtime.LockOSThread()
+	defer runtime.UnlockOSThread()
+
 	rt := quickjs.NewRuntime()
 	defer rt.Free()
 
@@ -76,12 +81,16 @@ func runAndGetResult(scriptPath string, makeArgs ...func(qjs *quickjs.Context) q
 
 	// function to get values back from js to here
 	qjs.Globals().Set("____grab", qjs.Function(func(qjs *quickjs.Context, this quickjs.Value, args []quickjs.Value) quickjs.Value {
+		fmt.Println("grabbing")
 		if args[0].IsString() {
 			reject = true
 			msg = args[0].String()
 		}
 		return qjs.Undefined()
 	}))
+
+	// standard library
+	qjs.Globals().Set("fetch", qjs.Function(fetchFunc))
 
 	// globals
 	args := qjs.Array()
@@ -100,12 +109,16 @@ func runAndGetResult(scriptPath string, makeArgs ...func(qjs *quickjs.Context) q
 	val, err = qjs.Eval(`
 import rejectEvent from './`+scriptPath+`'
 let msg = rejectEvent(...args)
+console.log("msg", msg)
 if (msg.then) {
+  console.log("will grab")
   msg.then(____grab)
 } else {
   ____grab(msg)
 }
 	`, quickjs.EVAL_MODULE)
+
+	fmt.Println("done")
 	defer val.Free()
 	if err != nil {
 		log.Warn().Err(err).Str("script", scriptPath).Msg("error applying policy script")
@@ -113,20 +126,4 @@ if (msg.then) {
 	}
 
 	return reject, msg
-}
-
-func qjsStringArray(qjs *quickjs.Context, src []string) quickjs.Value {
-	arr := qjs.Array()
-	for j, item := range src {
-		arr.SetByUint32(uint32(j), qjs.String(item))
-	}
-	return arr
-}
-
-func qjsIntArray(qjs *quickjs.Context, src []int) quickjs.Value {
-	arr := qjs.Array()
-	for j, item := range src {
-		arr.SetByUint32(uint32(j), qjs.Int32(int32(item)))
-	}
-	return arr
 }
