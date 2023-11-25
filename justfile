@@ -2,4 +2,4 @@ dev:
     ls **.go **.js | entr -r godotenv go run .
 
 build:
-    CC=musl-gcc go build -ldflags='-s -w -linkmode external -extldflags "-static"' -o ./relay29
+    CGO_CFLAGS="-D_LARGEFILE64_SOURCE" CC=musl-gcc go build -ldflags='-s -w -linkmode external -extldflags "-static"' -o ./relay29
