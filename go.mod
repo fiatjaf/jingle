@@ -7,9 +7,9 @@ toolchain go1.21.4
 require (
 	github.com/fiatjaf/eventstore v0.2.11
 	github.com/fiatjaf/khatru v0.0.13
+	github.com/fiatjaf/quickjs-go v0.2.1
 	github.com/kelseyhightower/envconfig v1.4.0
 	github.com/nbd-wtf/go-nostr v0.25.7
-	github.com/quickjs-go/quickjs-go v0.0.0-20230414054158-b72900cb68c1
 	github.com/rs/zerolog v1.31.0
 	github.com/urfave/cli/v2 v2.25.7
 )

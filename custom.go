@@ -3,9 +3,13 @@ package main
 import (
 	"context"
 	"os"
+	"runtime"
 
+	"github.com/fiatjaf/quickjs-go"
+	"github.com/fiatjaf/quickjs-go/polyfill/pkg/console"
+	"github.com/fiatjaf/quickjs-go/polyfill/pkg/fetch"
+	"github.com/fiatjaf/quickjs-go/polyfill/pkg/timer"
 	"github.com/nbd-wtf/go-nostr"
-	"github.com/quickjs-go/quickjs-go"
 )
 
 type scriptPath string
@@ -41,10 +45,10 @@ func rejectEvent(ctx context.Context, event *nostr.Event) (reject bool, msg stri
 		jsEvent.Set("kind", qjs.Int32(int32(event.Kind)))
 		jsEvent.Set("created_at", qjs.Int64(int64(event.CreatedAt)))
 		jsTags := qjs.Array()
-		for i, tag := range event.Tags {
-			jsTags.SetByUint32(uint32(i), qjsStringArray(qjs, tag))
+		for _, tag := range event.Tags {
+			jsTags.Push(qjsStringArray(qjs, tag))
 		}
-		jsEvent.Set("tags", jsTags)
+		jsEvent.Set("tags", jsTags.ToValue())
 		return jsEvent
 	})
 }
@@ -84,11 +88,19 @@ func rejectFilter(ctx context.Context, filter nostr.Filter) (reject bool, msg st
 }
 
 func runAndGetResult(scriptPath scriptPath, makeArgs ...func(qjs *quickjs.Context) quickjs.Value) (reject bool, msg string) {
+	runtime.LockOSThread()
+	defer runtime.UnlockOSThread()
+
 	rt := quickjs.NewRuntime()
-	defer rt.Free()
+	// defer rt.Close()
 
 	qjs := rt.NewContext()
-	defer qjs.Free()
+	// defer qjs.Close()
+
+	// inject fetch and setTimeout
+	fetch.InjectTo(qjs)
+	timer.InjectTo(qjs)
+	console.InjectTo(qjs)
 
 	// read code from user file
 	code, err := os.ReadFile("scripts/reject-event.js")
@@ -96,23 +108,40 @@ func runAndGetResult(scriptPath scriptPath, makeArgs ...func(qjs *quickjs.Contex
 		return true, "missing policy"
 	}
 
+	// sane defaults
+	reject = true
+	msg = "failed to run policy script"
+
 	// function to get values back from js to here
 	qjs.Globals().Set("____grab", qjs.Function(func(qjs *quickjs.Context, this quickjs.Value, args []quickjs.Value) quickjs.Value {
 		if args[0].IsString() {
 			reject = true
 			msg = args[0].String()
+		} else if args[0].IsObject() && args[0].Has("then") {
+			args[0].Call("then", qjs.Function(func(qjs *quickjs.Context, this quickjs.Value, args []quickjs.Value) quickjs.Value {
+				if args[0].IsString() {
+					reject = true
+					msg = args[0].String()
+				} else {
+					reject = false
+				}
+				return qjs.Null()
+			}))
+			rt.ExecuteAllPendingJobs()
+		} else {
+			reject = false
 		}
 		return qjs.Undefined()
 	}))
 
 	// globals
 	args := qjs.Array()
-	for i, makeArg := range makeArgs {
-		args.SetByUint32(uint32(i), makeArg(qjs))
+	for _, makeArg := range makeArgs {
+		args.Push(makeArg(qjs))
 	}
-	qjs.Globals().Set("args", args)
+	qjs.Globals().Set("args", args.ToValue())
 
-	val, err := qjs.EvalFile(string(code), quickjs.EVAL_MODULE, "reject-event.js")
+	val, err := qjs.EvalFile(string(code), "reject-event.js")
 	defer val.Free()
 	if err != nil {
 		log.Warn().Err(err).Str("script", string(scriptPath)).Msg("error reading policy script")
@@ -120,10 +149,10 @@ func runAndGetResult(scriptPath scriptPath, makeArgs ...func(qjs *quickjs.Contex
 	}
 
 	val, err = qjs.Eval(`
-import rejectEvent from './`+string(scriptPath)+`'
+import rejectEvent from './` + string(scriptPath) + `'
 let msg = rejectEvent(...args)
 ____grab(msg)
-	`, quickjs.EVAL_MODULE)
+	`)
 	defer val.Free()
 	if err != nil {
 		log.Warn().Err(err).Str("script", string(scriptPath)).Msg("error applying policy script")
@@ -135,16 +164,16 @@ ____grab(msg)
 
 func qjsStringArray(qjs *quickjs.Context, src []string) quickjs.Value {
 	arr := qjs.Array()
-	for j, item := range src {
-		arr.SetByUint32(uint32(j), qjs.String(item))
+	for _, item := range src {
+		arr.Push(qjs.String(item))
 	}
-	return arr
+	return arr.ToValue()
 }
 
 func qjsIntArray(qjs *quickjs.Context, src []int) quickjs.Value {
 	arr := qjs.Array()
-	for j, item := range src {
-		arr.SetByUint32(uint32(j), qjs.Int32(int32(item)))
+	for _, item := range src {
+		arr.Push(qjs.Int32(int32(item)))
 	}
-	return arr
+	return arr.ToValue()
 }
