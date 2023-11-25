@@ -24,12 +24,13 @@ jobs:
       - make-release
     strategy:
       matrix:
-        goos: [linux, freebsd, darwin, windows]
-        goarch: [amd64, arm64]
+        goos: [linux]
+        goarch: [amd64]
         exclude:
           - goarch: arm64
             goos: windows
     steps:
+      - run: sudo apt install clang libsqlite3-dev liblmdb-dev
       - uses: actions/checkout@v3
       - uses: wangyoucao577/go-release-action@v1.40
         with:
@@ -40,3 +41,4 @@ jobs:
           md5sum: false
           sha256sum: false
           compress_assets: false
+          build_command: make
