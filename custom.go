@@ -100,7 +100,11 @@ func runAndGetResult(scriptPath string, makeArgs ...func(qjs *quickjs.Context) q
 	val, err = qjs.Eval(`
 import rejectEvent from './`+scriptPath+`'
 let msg = rejectEvent(...args)
-____grab(msg)
+if (msg.then) {
+  msg.then(____grab)
+} else {
+  ____grab(msg)
+}
 	`, quickjs.EVAL_MODULE)
 	defer val.Free()
 	if err != nil {
