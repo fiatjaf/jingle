@@ -91,6 +91,7 @@ func main() {
 		ArgsUsage: "",
 		Action: func(c *cli.Context) error {
 			// check if scripts exist
+			os.MkdirAll("scripts", 0700)
 			for _, requiredFile := range []scriptPath{
 				REJECT_EVENT,
 				REJECT_FILTER,
