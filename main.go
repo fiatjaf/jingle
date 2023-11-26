@@ -119,16 +119,16 @@ func main() {
 
 			// basic relay methods with custom stores
 			dbpath := c.String("database-url")
-			os.MkdirAll(dbpath, 0700)
 			var db eventstore.Store
 			switch c.String("database") {
 			case "sqlite", "sqlite3":
-				dbpath = filepath.Join(dbpath, "sqlite")
 				db = &sqlite3.SQLite3Backend{DatabaseURL: dbpath}
 			case "lmdb":
+				os.MkdirAll(dbpath, 0700)
 				dbpath = filepath.Join(dbpath, "lmdb")
 				db = &lmdb.LMDBBackend{Path: dbpath}
 			case "badger":
+				os.MkdirAll(dbpath, 0700)
 				dbpath = filepath.Join(dbpath, "badger")
 				db = &badger.BadgerBackend{Path: dbpath}
 			default:
