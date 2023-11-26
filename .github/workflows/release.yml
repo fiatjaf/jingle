@@ -18,25 +18,41 @@ jobs:
         with:
           tag_name: ${{ github.ref }}
           release_name: ${{ github.ref }}
-  build-all-for-all:
+  build-linux:
     runs-on: ubuntu-latest
     needs:
       - make-release
-    strategy:
-      matrix:
-        goos: [linux, darwin]
-        goarch: [amd64, arm64]
-        exclude:
-          - goarch: arm64
-            goos: linux
     steps:
-      - run: sudo apt install clang libsqlite3-dev liblmdb-dev
       - uses: actions/checkout@v3
       - uses: wangyoucao577/go-release-action@v1.40
         with:
           github_token: ${{ secrets.GITHUB_TOKEN }}
-          goos: ${{ matrix.goos }}
-          goarch: ${{ matrix.goarch }}
+          overwrite: true
+          md5sum: false
+          sha256sum: false
+          compress_assets: false
+  build-mac:
+    runs-on: darwin-latest
+    needs:
+      - make-release
+    steps:
+      - uses: actions/checkout@v3
+      - uses: wangyoucao577/go-release-action@v1.40
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          overwrite: true
+          md5sum: false
+          sha256sum: false
+          compress_assets: false
+  build-windows:
+    runs-on: windows-latest
+    needs:
+      - make-release
+    steps:
+      - uses: actions/checkout@v3
+      - uses: wangyoucao577/go-release-action@v1.40
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
           overwrite: true
           md5sum: false
           sha256sum: false
