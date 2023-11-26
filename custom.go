@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"os"
 	"runtime"
 
 	"github.com/fiatjaf/quickjs-go"
@@ -139,10 +140,19 @@ func runAndGetResult(scriptPath scriptPath, makeArgs ...func(qjs *quickjs.Contex
 	}
 	qjs.Globals().Set("args", args.ToValue())
 
+	// register module
+	code, err := os.ReadFile(string(scriptPath))
+	if err != nil {
+		log.Warn().Err(err).Str("script", string(scriptPath)).Msg("couldn't read policy file")
+		return true, "couldn't read policy file"
+	}
+	qjs.RegisterModule(string(scriptPath), code)
+
+	// actually run it
 	val, err := qjs.Eval(`
 import rejectEvent from './` + string(scriptPath) + `'
 let msg = rejectEvent(...args)
-____grab(msg)
+____grab(msg) // this will also handle the case in which 'msg' is a promise
 	`)
 	defer val.Free()
 	if err != nil {
