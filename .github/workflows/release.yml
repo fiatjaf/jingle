@@ -24,36 +24,44 @@ jobs:
       - make-release
     steps:
       - uses: actions/checkout@v3
-      - uses: wangyoucao577/go-release-action@v1.40
+      - uses: actions/setup-go@v4
         with:
-          github_token: ${{ secrets.GITHUB_TOKEN }}
-          overwrite: true
-          md5sum: false
-          sha256sum: false
-          compress_assets: false
+          go-version-file: go.mod
+      - run: go build
+      - run: mv jingle jingle-linux
+      - uses: AButler/upload-release-assets@v2.0
+        with:
+          files: jingle-linux
+          repo-token: ${{ secrets.GITHUB_TOKEN }}
+          release-tag: ${{ github.ref_name }}
   build-mac:
     runs-on: darwin-latest
     needs:
       - make-release
     steps:
       - uses: actions/checkout@v3
-      - uses: wangyoucao577/go-release-action@v1.40
+      - uses: actions/setup-go@v4
         with:
-          github_token: ${{ secrets.GITHUB_TOKEN }}
-          overwrite: true
-          md5sum: false
-          sha256sum: false
-          compress_assets: false
+          go-version-file: go.mod
+      - run: go build
+      - run: mv jingle jingle-macos
+      - uses: AButler/upload-release-assets@v2.0
+        with:
+          files: jingle-macos
+          repo-token: ${{ secrets.GITHUB_TOKEN }}
+          release-tag: ${{ github.ref_name }}
   build-windows:
     runs-on: windows-latest
     needs:
       - make-release
     steps:
       - uses: actions/checkout@v3
-      - uses: wangyoucao577/go-release-action@v1.40
+      - uses: actions/setup-go@v4
         with:
-          github_token: ${{ secrets.GITHUB_TOKEN }}
-          overwrite: true
-          md5sum: false
-          sha256sum: false
-          compress_assets: false
+          go-version-file: go.mod
+      - run: go build
+      - uses: AButler/upload-release-assets@v2.0
+        with:
+          files: jingle.exe
+          repo-token: ${{ secrets.GITHUB_TOKEN }}
+          release-tag: ${{ github.ref_name }}
