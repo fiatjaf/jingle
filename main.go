@@ -11,6 +11,7 @@ import (
 	"github.com/fiatjaf/eventstore/lmdb"
 	"github.com/fiatjaf/eventstore/sqlite3"
 	"github.com/fiatjaf/khatru"
+	"github.com/hoisie/mustache"
 	"github.com/kelseyhightower/envconfig"
 	"github.com/rs/zerolog"
 
@@ -21,14 +22,14 @@ type Settings struct {
 	Host             string `envconfig:"HOST" default:""`
 	Port             string `envconfig:"PORT" default:"5577"`
 	Domain           string `envconfig:"DOMAIN"`
-	RelayName        string `envconfig:"RELAY_NAME" default:"my custom relay"`
+	RelayName        string `envconfig:"RELAY_NAME" default:"jinglebells"`
 	RelayPubkey      string `envconfig:"RELAY_PUBKEY" default:"79be667ef9dcbbac55a06295ce870b07029bfcdb2dce28d959f2815b16f81798"`
-	RelayDescription string `envconfig:"RELAY_DESCRIPTION" default:"this is an experimental relay"`
+	RelayDescription string `envconfig:"RELAY_DESCRIPTION" default:"an experimental relay"`
 	RelayIcon        string `envconfig:"RELAY_ICON" default:"http://icons.iconarchive.com/icons/paomedia/small-n-flat/512/bell-icon.png"`
 	DatabaseBackend  string `envconfig:"DATABASE" default:"sqlite"`
 	DatabaseURL      string `envconfig:"DATABASE_URL"`
-	ScriptsDirectory string `envconfig:"DATA_DIRECTORY" default:"./scripts"`
-	DataDirectory    string `envconfig:"SCRIPTS_DIRECTORY" default:"./data"`
+	CustomDirectory  string `envconfig:"DATA_DIRECTORY" default:"stuff"`
+	DataDirectory    string `envconfig:"SCRIPTS_DIRECTORY" default:"data"`
 }
 
 var (
@@ -52,7 +53,7 @@ func main() {
 
 	app := &cli.App{
 		Name:  "jingle",
-		Usage: "a personal relay",
+		Usage: "a customizeable personal relay",
 		Flags: []cli.Flag{
 			&cli.StringFlag{
 				Name:        "host",
@@ -121,21 +122,23 @@ func main() {
 			&cli.StringFlag{
 				Name:        "scriptsdir",
 				Usage:       "base directory for putting scripts in",
-				Value:       s.ScriptsDirectory,
-				Destination: &s.ScriptsDirectory,
+				Value:       s.CustomDirectory,
+				Destination: &s.CustomDirectory,
 				Category:    CATEGORY_UNCOMMON,
 			},
 		},
 		ArgsUsage: "",
 		Action: func(c *cli.Context) error {
+			// ensure this directory exists
+			os.MkdirAll(s.CustomDirectory, 0700)
+
 			// check if scripts exist
-			log.Info().Msg("checking for scripts under ./scripts/")
-			os.MkdirAll(s.ScriptsDirectory, 0700)
+			log.Info().Msgf("checking for scripts under ./%s/", s.CustomDirectory)
 			for _, scriptName := range []scriptPath{
 				REJECT_EVENT,
 				REJECT_FILTER,
 			} {
-				scriptPath := filepath.Join(s.ScriptsDirectory, string(scriptName))
+				scriptPath := filepath.Join(s.CustomDirectory, string(scriptName))
 				if _, err := os.Stat(scriptPath); err != nil {
 					if os.IsNotExist(err) {
 						// if they don't exist, create them
@@ -203,11 +206,43 @@ func main() {
 				rejectFilter,
 			)
 
+			// nip11
+
 			// other http handlers
+			log.Info().Msgf("checking for html and assets under ./%s/", s.CustomDirectory)
+			homePath := filepath.Join(s.CustomDirectory, "index.html")
+			if _, err := os.Stat(homePath); err != nil {
+				if os.IsNotExist(err) {
+					os.WriteFile(homePath, []byte(`
+<!doctype html>
+<p>this is the <b>{{Name}}</b> nostr relay</p>
+<img width="200" src="{{Icon}}">
+<p>controlled by: <code>{{PubKey}}</code></p>
+description:
+<blockquote>{{Description}}</blockquote>
+`), 0644)
+				}
+			}
+
 			mux := relay.Router()
 			mux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
-				w.Header().Set("content-type", "text/html")
-				fmt.Fprintf(w, `<b>welcome</b> to my relay!`)
+				path := r.URL.Path[1:]
+				if path == string(REJECT_EVENT) || path == string(REJECT_FILTER) {
+					w.WriteHeader(403)
+					return
+				}
+
+				if path == "" {
+					path = "index.html"
+				}
+				filePath := filepath.Join(s.CustomDirectory, path)
+
+				if filepath.Ext(filePath) == ".html" {
+					w.Header().Set("content-type", "text/html")
+					fmt.Fprint(w, mustache.RenderFile(filePath, relay.Info))
+				} else {
+					http.ServeFile(w, r, filePath)
+				}
 			})
 
 			// start the server

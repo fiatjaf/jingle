@@ -142,7 +142,7 @@ func runAndGetResult(scriptPath scriptPath, makeArgs ...func(qjs *quickjs.Contex
 	qjs.Globals().Set("args", args.ToValue())
 
 	// register module
-	code, err := os.ReadFile(filepath.Join(s.ScriptsDirectory, string(scriptPath)))
+	code, err := os.ReadFile(filepath.Join(s.CustomDirectory, string(scriptPath)))
 	if err != nil {
 		log.Warn().Err(err).Str("script", string(scriptPath)).Msg("couldn't read policy file")
 		return true, "couldn't read policy file"
