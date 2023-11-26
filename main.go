@@ -23,15 +23,24 @@ type Settings struct {
 	Domain           string `envconfig:"DOMAIN"`
 	RelayName        string `envconfig:"RELAY_NAME" default:"my custom relay"`
 	RelayPubkey      string `envconfig:"RELAY_PUBKEY" default:"79be667ef9dcbbac55a06295ce870b07029bfcdb2dce28d959f2815b16f81798"`
-	RelayDescription string `envconfig:"RELAY_DESCRIPTION" default:"experimental, do not use"`
+	RelayDescription string `envconfig:"RELAY_DESCRIPTION" default:"this is an experimental relay"`
 	RelayIcon        string `envconfig:"RELAY_ICON" default:"http://icons.iconarchive.com/icons/paomedia/small-n-flat/512/bell-icon.png"`
+	DatabaseBackend  string `envconfig:"DATABASE" default:"sqlite"`
 	DatabaseURL      string `envconfig:"DATABASE_URL"`
+	ScriptsDirectory string `envconfig:"DATA_DIRECTORY" default:"./scripts"`
+	DataDirectory    string `envconfig:"SCRIPTS_DIRECTORY" default:"./data"`
 }
 
 var (
 	s     Settings
 	log   = zerolog.New(os.Stderr).Output(zerolog.ConsoleWriter{Out: os.Stdout}).With().Timestamp().Logger()
 	relay = khatru.NewRelay()
+)
+
+const (
+	CATEGORY_COMMON   = "common things you should set\n   ============================"
+	CATEGORY_UNCOMMON = "complex advanced stuff\n   ======================"
+	CATEGORY_NETWORK  = "server network settings\n   ======================="
 )
 
 func main() {
@@ -46,98 +55,141 @@ func main() {
 		Usage: "a personal relay",
 		Flags: []cli.Flag{
 			&cli.StringFlag{
-				Name:  "host",
-				Usage: "address in which to listen for the server",
-				Value: s.Host,
+				Name:        "host",
+				Usage:       "address in which to listen for the server",
+				Value:       s.Host,
+				Destination: &s.Host,
+				Category:    CATEGORY_NETWORK,
 			},
 			&cli.StringFlag{
-				Name:    "port",
-				Aliases: []string{"p"},
-				Usage:   "port in which to listen for the server",
-				Value:   s.Port,
+				Name:        "port",
+				Aliases:     []string{"p"},
+				Usage:       "port in which to listen for the server",
+				Value:       s.Port,
+				Destination: &s.Port,
+				Category:    CATEGORY_NETWORK,
 			},
 			&cli.StringFlag{
-				Name:  "name",
-				Usage: "relay name",
-				Value: s.RelayName,
+				Name:        "name",
+				Usage:       "relay name",
+				Value:       s.RelayName,
+				Destination: &s.RelayName,
+				Category:    CATEGORY_COMMON,
 			},
 			&cli.StringFlag{
-				Name:  "description",
-				Usage: "relay description",
-				Value: s.RelayDescription,
+				Name:        "description",
+				Usage:       "relay description",
+				Value:       s.RelayDescription,
+				Destination: &s.RelayDescription,
+				Category:    CATEGORY_COMMON,
 			},
 			&cli.StringFlag{
-				Name:  "icon",
-				Usage: "relay icon image",
-				Value: s.RelayIcon,
+				Name:        "icon",
+				Usage:       "relay icon image",
+				Value:       s.RelayIcon,
+				Destination: &s.RelayIcon,
+				Category:    CATEGORY_COMMON,
 			},
 			&cli.StringFlag{
-				Name:  "pubkey",
-				Usage: "relay owner pubkey",
-				Value: s.RelayPubkey,
+				Name:        "pubkey",
+				Usage:       "relay owner pubkey",
+				Value:       s.RelayPubkey,
+				Destination: &s.RelayPubkey,
+				Category:    CATEGORY_COMMON,
 			},
 			&cli.StringFlag{
-				Name:    "database",
-				Aliases: []string{"db"},
-				Usage:   "what database to use as a backend ('sqlite', 'lmdb' or 'badger')",
-				Value:   "sqlite",
+				Name:        "db",
+				Usage:       "what database to use as a backend ('sqlite', 'lmdb' or 'badger')",
+				Value:       s.DatabaseBackend,
+				Destination: &s.DatabaseBackend,
+				Category:    CATEGORY_COMMON,
 			},
 			&cli.StringFlag{
-				Name:    "database-url",
-				Aliases: []string{"database-path", "dbpath"},
-				Usage:   "path where to save the database files",
-				Value:   "./data",
+				Name:        "database-uri",
+				Usage:       "path or custom URI that will be given to the database driver, prefixed with --datadir",
+				DefaultText: "the name of the database driver",
+				Destination: &s.DatabaseURL,
+				Category:    CATEGORY_UNCOMMON,
+			},
+			&cli.StringFlag{
+				Name:        "datadir",
+				Usage:       "base directory for putting databases in",
+				Value:       s.DataDirectory,
+				Destination: &s.DataDirectory,
+				Category:    CATEGORY_UNCOMMON,
+			},
+			&cli.StringFlag{
+				Name:        "scriptsdir",
+				Usage:       "base directory for putting scripts in",
+				Value:       s.ScriptsDirectory,
+				Destination: &s.ScriptsDirectory,
+				Category:    CATEGORY_UNCOMMON,
 			},
 		},
 		ArgsUsage: "",
 		Action: func(c *cli.Context) error {
 			// check if scripts exist
 			log.Info().Msg("checking for scripts under ./scripts/")
-			os.MkdirAll("scripts", 0700)
-			for _, requiredFile := range []scriptPath{
+			os.MkdirAll(s.ScriptsDirectory, 0700)
+			for _, scriptName := range []scriptPath{
 				REJECT_EVENT,
 				REJECT_FILTER,
 			} {
-				if _, err := os.Stat(string(requiredFile)); err != nil {
+				scriptPath := filepath.Join(s.ScriptsDirectory, string(scriptName))
+				if _, err := os.Stat(scriptPath); err != nil {
 					if os.IsNotExist(err) {
 						// if they don't exist, create them
-						err := os.WriteFile(string(requiredFile), []byte(defaultScripts[requiredFile]+"\n"), 0644)
+						err := os.WriteFile(scriptPath, []byte(defaultScripts[scriptName]+"\n"), 0644)
 						if err != nil {
-							return fmt.Errorf("failed to write %s: %w", requiredFile, err)
+							return fmt.Errorf("failed to write %s: %w", scriptName, err)
 						}
 					} else {
-						return fmt.Errorf("missing file %s: %w", requiredFile, err)
+						return fmt.Errorf("missing file %s: %w", scriptName, err)
 					}
 				}
 			}
 
 			// relay metadata
-			relay.Info.Name = c.String("name")
-			relay.Info.PubKey = c.String("pubkey")
-			relay.Info.Description = c.String("description")
-			relay.Info.Icon = c.String("icon")
+			relay.Info.Name = s.RelayName
+			relay.Info.PubKey = s.RelayPubkey
+			relay.Info.Description = s.RelayDescription
+			relay.Info.Icon = s.RelayIcon
 
 			// basic relay methods with custom stores
-			dbpath := c.String("database-url")
-			os.MkdirAll(dbpath, 0700)
+			if err := os.MkdirAll(s.DataDirectory, 0700); err != nil {
+				return fmt.Errorf("failed to create datadir '%s': %w", s.DataDirectory, err)
+			}
 			var db eventstore.Store
-			switch c.String("database") {
+			var dbpath string
+			switch s.DatabaseBackend {
 			case "sqlite", "sqlite3":
-				dbpath = filepath.Join(dbpath, "sqlite")
+				uri := s.DatabaseURL
+				if uri == "" {
+					uri = "sqlite"
+				}
+				dbpath = filepath.Join(s.DataDirectory, uri)
 				db = &sqlite3.SQLite3Backend{DatabaseURL: dbpath}
 			case "lmdb":
-				dbpath = filepath.Join(dbpath, "lmdb")
+				uri := s.DatabaseURL
+				if uri == "" {
+					uri = "lmdb"
+				}
+				dbpath = filepath.Join(s.DataDirectory, uri)
 				db = &lmdb.LMDBBackend{Path: dbpath}
 			case "badger":
-				dbpath = filepath.Join(dbpath, "badger")
+				uri := s.DatabaseURL
+				if uri == "" {
+					uri = "badger"
+				}
+				dbpath = filepath.Join(s.DataDirectory, uri)
 				db = &badger.BadgerBackend{Path: dbpath}
 			default:
-				return fmt.Errorf("unknown option '%s' for database", c.String("database"))
+				return fmt.Errorf("unknown option '%s' for database", s.DatabaseBackend)
 			}
 			if err := db.Init(); err != nil {
 				return fmt.Errorf("failed to initialize database: %w", err)
 			}
-			log.Info().Msgf("storing data with %s under ./%s", c.String("database"), dbpath)
+			log.Info().Msgf("storing data with %s under ./%s", s.DatabaseBackend, dbpath)
 
 			relay.StoreEvent = append(relay.StoreEvent, db.SaveEvent)
 			relay.QueryEvents = append(relay.QueryEvents, db.QueryEvents)

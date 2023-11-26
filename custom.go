@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"os"
+	"path/filepath"
 	"runtime"
 
 	"github.com/fiatjaf/quickjs-go"
@@ -15,8 +16,8 @@ import (
 type scriptPath string
 
 const (
-	REJECT_EVENT  scriptPath = "scripts/reject-event.js"
-	REJECT_FILTER scriptPath = "scripts/reject-filter.js"
+	REJECT_EVENT  scriptPath = "reject-event.js"
+	REJECT_FILTER scriptPath = "reject-filter.js"
 )
 
 var defaultScripts = map[scriptPath]string{
@@ -141,7 +142,7 @@ func runAndGetResult(scriptPath scriptPath, makeArgs ...func(qjs *quickjs.Contex
 	qjs.Globals().Set("args", args.ToValue())
 
 	// register module
-	code, err := os.ReadFile(string(scriptPath))
+	code, err := os.ReadFile(filepath.Join(s.ScriptsDirectory, string(scriptPath)))
 	if err != nil {
 		log.Warn().Err(err).Str("script", string(scriptPath)).Msg("couldn't read policy file")
 		return true, "couldn't read policy file"
