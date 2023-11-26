@@ -1,4 +1,4 @@
-module github.com/fiatjaf/jinglebells
+module github.com/fiatjaf/jingle
 
 go 1.21.0
 

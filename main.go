@@ -42,7 +42,7 @@ func main() {
 	}
 
 	app := &cli.App{
-		Name:  "jinglebells",
+		Name:  "jingle",
 		Usage: "a personal relay",
 		Flags: []cli.Flag{
 			&cli.StringFlag{
