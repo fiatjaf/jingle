@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"fmt"
 	"net/http"
 	"os"
@@ -13,6 +14,7 @@ import (
 	"github.com/fiatjaf/khatru"
 	"github.com/hoisie/mustache"
 	"github.com/kelseyhightower/envconfig"
+	"github.com/nbd-wtf/go-nostr/nip11"
 	"github.com/rs/zerolog"
 
 	"github.com/urfave/cli/v2"
@@ -21,11 +23,10 @@ import (
 type Settings struct {
 	Host             string `envconfig:"HOST" default:""`
 	Port             string `envconfig:"PORT" default:"5577"`
-	Domain           string `envconfig:"DOMAIN"`
+	ServiceURL       string `envconfig:"SERVICE_URL"`
 	RelayName        string `envconfig:"RELAY_NAME" default:"jinglebells"`
 	RelayPubkey      string `envconfig:"RELAY_PUBKEY" default:"79be667ef9dcbbac55a06295ce870b07029bfcdb2dce28d959f2815b16f81798"`
 	RelayDescription string `envconfig:"RELAY_DESCRIPTION" default:"an experimental relay"`
-	RelayIcon        string `envconfig:"RELAY_ICON" default:"http://icons.iconarchive.com/icons/paomedia/small-n-flat/512/bell-icon.png"`
 	DatabaseBackend  string `envconfig:"DATABASE" default:"sqlite"`
 	DatabaseURL      string `envconfig:"DATABASE_URL"`
 	CustomDirectory  string `envconfig:"DATA_DIRECTORY" default:"stuff"`
@@ -71,6 +72,12 @@ func main() {
 				Category:    CATEGORY_NETWORK,
 			},
 			&cli.StringFlag{
+				Name:        "service-url",
+				Usage:       "base url of the relay, with http(s):// prefix",
+				Destination: &s.ServiceURL,
+				Category:    CATEGORY_NETWORK,
+			},
+			&cli.StringFlag{
 				Name:        "name",
 				Usage:       "relay name",
 				Value:       s.RelayName,
@@ -82,13 +89,6 @@ func main() {
 				Usage:       "relay description",
 				Value:       s.RelayDescription,
 				Destination: &s.RelayDescription,
-				Category:    CATEGORY_COMMON,
-			},
-			&cli.StringFlag{
-				Name:        "icon",
-				Usage:       "relay icon image",
-				Value:       s.RelayIcon,
-				Destination: &s.RelayIcon,
 				Category:    CATEGORY_COMMON,
 			},
 			&cli.StringFlag{
@@ -156,7 +156,12 @@ func main() {
 			relay.Info.Name = s.RelayName
 			relay.Info.PubKey = s.RelayPubkey
 			relay.Info.Description = s.RelayDescription
-			relay.Info.Icon = s.RelayIcon
+			relay.OverwriteRelayInformation = append(relay.OverwriteRelayInformation,
+				func(ctx context.Context, r *http.Request, info nip11.RelayInformationDocument) nip11.RelayInformationDocument {
+					info.Icon = getIconURL(r)
+					return info
+				},
+			)
 
 			// basic relay methods with custom stores
 			if err := os.MkdirAll(s.DataDirectory, 0700); err != nil {
@@ -206,8 +211,6 @@ func main() {
 				rejectFilter,
 			)
 
-			// nip11
-
 			// other http handlers
 			log.Info().Msgf("checking for html and assets under ./%s/", s.CustomDirectory)
 			homePath := filepath.Join(s.CustomDirectory, "index.html")
@@ -239,6 +242,7 @@ description:
 
 				if filepath.Ext(filePath) == ".html" {
 					w.Header().Set("content-type", "text/html")
+					relay.Info.Icon = getIconURL(r)
 					fmt.Fprint(w, mustache.RenderFile(filePath, relay.Info))
 				} else {
 					http.ServeFile(w, r, filePath)

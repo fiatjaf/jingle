@@ -41,8 +41,8 @@ github.com/fasthttp/websocket v1.5.3 h1:TPpQuLwJYfd4LJPXvHDYPMFWbLjsT91n3GpWtCQt
 github.com/fasthttp/websocket v1.5.3/go.mod h1:46gg/UBmTU1kUaTcwQXpUxtRwG2PvIZYeA8oL6vF3Fs=
 github.com/fiatjaf/eventstore v0.2.11 h1:hb3ImjJAX+aNvMd19sttbZD2PzgohRuZtOgVQLsBXZs=
 github.com/fiatjaf/eventstore v0.2.11/go.mod h1:Zx1XqwICh7RxxKLkgc0aXlVo298ABs4W5awP/1/bYYs=
-github.com/fiatjaf/khatru v0.0.13 h1:yWKGnAvgNsxqG1OX0K60+yDd0nrcnGZrAPw14cgA+Tg=
-github.com/fiatjaf/khatru v0.0.13/go.mod h1:ShdaRrzoZpCKjillsH7OS1O8xnxQcJP4bA5niBPUb/o=
+github.com/fiatjaf/khatru v0.0.14 h1:hHHYH5uV7ANBxumxV2aBGFbZ4c/f1qMOrAMPNln7P74=
+github.com/fiatjaf/khatru v0.0.14/go.mod h1:ShdaRrzoZpCKjillsH7OS1O8xnxQcJP4bA5niBPUb/o=
 github.com/fiatjaf/quickjs-go v0.3.0 h1:wLvvummPLBrH3JDO4wHCC+uYVIDEHuUT2Jz1Ha65i3A=
 github.com/fiatjaf/quickjs-go v0.3.0/go.mod h1:lYXCC+EmJ6YxXs128amkCmMXnimlO4dFCqY6fjwGC0M=
 github.com/go-sql-driver/mysql v1.6.0/go.mod h1:DCzpHaOWr8IXmIStZouvnhqoel9Qv2LBy8hT2VhHyBg=
