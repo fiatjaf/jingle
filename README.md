@@ -38,3 +38,7 @@ Call `jingle --help` to see other possible options. All of these can also be set
 ### Trying it
 
 Since you are already in the command line you can download https://github.com/fiatjaf/nak and try writing some events or queries to your relay.
+
+## License
+
+Public domain.
