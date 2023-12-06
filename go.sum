@@ -43,8 +43,8 @@ github.com/fiatjaf/eventstore v0.2.11 h1:hb3ImjJAX+aNvMd19sttbZD2PzgohRuZtOgVQLs
 github.com/fiatjaf/eventstore v0.2.11/go.mod h1:Zx1XqwICh7RxxKLkgc0aXlVo298ABs4W5awP/1/bYYs=
 github.com/fiatjaf/khatru v0.0.14 h1:hHHYH5uV7ANBxumxV2aBGFbZ4c/f1qMOrAMPNln7P74=
 github.com/fiatjaf/khatru v0.0.14/go.mod h1:ShdaRrzoZpCKjillsH7OS1O8xnxQcJP4bA5niBPUb/o=
-github.com/fiatjaf/quickjs-go v0.3.0 h1:wLvvummPLBrH3JDO4wHCC+uYVIDEHuUT2Jz1Ha65i3A=
-github.com/fiatjaf/quickjs-go v0.3.0/go.mod h1:lYXCC+EmJ6YxXs128amkCmMXnimlO4dFCqY6fjwGC0M=
+github.com/fiatjaf/quickjs-go v0.3.1 h1:NZu3o/P3fGpwr1zfkwadjKm3EsWXEuSHJ4TV0FJ8Zas=
+github.com/fiatjaf/quickjs-go v0.3.1/go.mod h1:lYXCC+EmJ6YxXs128amkCmMXnimlO4dFCqY6fjwGC0M=
 github.com/go-sql-driver/mysql v1.6.0/go.mod h1:DCzpHaOWr8IXmIStZouvnhqoel9Qv2LBy8hT2VhHyBg=
 github.com/go-sql-driver/mysql v1.7.1 h1:lUIinVbN1DY0xBg0eMOzmmtGoHwWBbvnWubQUrtU8EI=
 github.com/go-sql-driver/mysql v1.7.1/go.mod h1:OXbVy3sEdcQ2Doequ6Z5BW6fXNQTmx+9S1MCJN5yJMI=
