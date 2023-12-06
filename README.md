@@ -34,7 +34,7 @@ This will create a `./data` and a `./stuff` directories under the current direct
 
 ### More about `reject-event.js` and `reject-filter.js`
 
-**Parameters**
+**Promises**
 
 The functions exported from `reject-event.js` and `reject-filter.js` can also return `Promise(string)` or `Promise(null)` in order to reject or accept the requests, respectively.
 
