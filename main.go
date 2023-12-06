@@ -34,9 +34,11 @@ type Settings struct {
 }
 
 var (
-	s     Settings
-	log   = zerolog.New(os.Stderr).Output(zerolog.ConsoleWriter{Out: os.Stdout}).With().Timestamp().Logger()
-	relay = khatru.NewRelay()
+	s       Settings
+	db      eventstore.Store
+	log     = zerolog.New(os.Stderr).Output(zerolog.ConsoleWriter{Out: os.Stdout}).With().Timestamp().Logger()
+	relay   = khatru.NewRelay()
+	wrapper eventstore.RelayInterface
 )
 
 const (
@@ -167,7 +169,6 @@ func main() {
 			if err := os.MkdirAll(s.DataDirectory, 0700); err != nil {
 				return fmt.Errorf("failed to create datadir '%s': %w", s.DataDirectory, err)
 			}
-			var db eventstore.Store
 			var dbpath string
 			switch s.DatabaseBackend {
 			case "sqlite", "sqlite3":
@@ -197,6 +198,7 @@ func main() {
 			if err := db.Init(); err != nil {
 				return fmt.Errorf("failed to initialize database: %w", err)
 			}
+			wrapper = eventstore.RelayWrapper{Store: db}
 			log.Info().Msgf("storing data with %s under ./%s", s.DatabaseBackend, dbpath)
 
 			relay.StoreEvent = append(relay.StoreEvent, db.SaveEvent)

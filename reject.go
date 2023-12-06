@@ -6,6 +6,7 @@ import (
 	"path/filepath"
 	"runtime"
 
+	"github.com/fiatjaf/khatru"
 	"github.com/fiatjaf/quickjs-go"
 	"github.com/fiatjaf/quickjs-go/polyfill/pkg/console"
 	"github.com/fiatjaf/quickjs-go/polyfill/pkg/fetch"
@@ -21,13 +22,29 @@ const (
 )
 
 var defaultScripts = map[scriptPath]string{
-	REJECT_EVENT: `export default function (event) {
+	REJECT_EVENT: `export default function (event, relay, authedUser) {
+  if (event.kind === 0) {
+    if (authedUser) {
+      return null
+    } else {
+      return 'auth-required: please auth before publishing metadata'
+    }
+  }
+
   if (event.kind !== 1) return 'we only accept kind:1 notes'
   if (event.content.length > 140)
     return 'notes must have up to 140 characters only'
   if (event.tags.length > 0) return 'notes cannot have tags'
+
+  let metadata = relay.query({
+    kinds: [0],
+    authors: [event.pubkey]
+  })
+  if (metadata.length === 0) return 'publish your metadata here first'
 }`,
-	REJECT_FILTER: `export default function (filter) {
+	REJECT_FILTER: `export default function (filter, relay, authedUser) {
+  if (!authedUser) return "auth-required: take a selfie and send it to the CIA"
+
   return fetch(
     'https://www.random.org/integers/?num=1&min=1&max=9&col=1&base=10&format=plain&rnd=new'
   )
@@ -41,56 +58,52 @@ var defaultScripts = map[scriptPath]string{
 }
 
 func rejectEvent(ctx context.Context, event *nostr.Event) (reject bool, msg string) {
-	return runAndGetResult(REJECT_EVENT, func(qjs *quickjs.Context) quickjs.Value {
+	return runAndGetResult(REJECT_EVENT,
 		// first argument: the nostr event object we'll pass to the script
-		jsEvent := qjs.Object()
-		jsEvent.Set("id", qjs.String(event.ID))
-		jsEvent.Set("pubkey", qjs.String(event.PubKey))
-		jsEvent.Set("sig", qjs.String(event.Sig))
-		jsEvent.Set("content", qjs.String(event.Content))
-		jsEvent.Set("kind", qjs.Int32(int32(event.Kind)))
-		jsEvent.Set("created_at", qjs.Int64(int64(event.CreatedAt)))
-		jsTags := qjs.Array()
-		for _, tag := range event.Tags {
-			jsTags.Push(qjsStringArray(qjs, tag))
-		}
-		jsEvent.Set("tags", jsTags.ToValue())
-		return jsEvent
-	})
+		func(qjs *quickjs.Context) quickjs.Value { return eventToJs(qjs, event) },
+		// second argument: the relay object with goodies
+		func(qjs *quickjs.Context) quickjs.Value { return makeRelayObject(ctx, qjs) },
+		// third argument: the currently authenticated user
+		func(qjs *quickjs.Context) quickjs.Value { return makeAuthedUserString(ctx, qjs) },
+	)
 }
 
 func rejectFilter(ctx context.Context, filter nostr.Filter) (reject bool, msg string) {
-	return runAndGetResult(REJECT_FILTER, func(qjs *quickjs.Context) quickjs.Value {
+	return runAndGetResult(REJECT_FILTER,
 		// first argument: the nostr filter object we'll pass to the script
-		jsFilter := qjs.Object()
+		func(qjs *quickjs.Context) quickjs.Value { return filterToJs(qjs, filter) },
+		// second argument: the relay object with goodies
+		func(qjs *quickjs.Context) quickjs.Value { return makeRelayObject(ctx, qjs) },
+		// third argument: the currently authenticated user
+		func(qjs *quickjs.Context) quickjs.Value { return makeAuthedUserString(ctx, qjs) },
+	)
+}
 
-		if len(filter.IDs) > 0 {
-			jsFilter.Set("ids", qjsStringArray(qjs, filter.IDs))
+func makeRelayObject(ctx context.Context, qjs *quickjs.Context) quickjs.Value {
+	relayObject := qjs.Object()
+	queryFunc := qjs.Function(func(qjs *quickjs.Context, this quickjs.Value, args []quickjs.Value) quickjs.Value {
+		filterjs := args[0] // this is expected to be a nostr filter object
+		filter := filterFromJs(qjs, filterjs)
+		events, err := wrapper.QuerySync(ctx, filter)
+		if err != nil {
+			qjs.ThrowError(err)
 		}
-		if len(filter.Authors) > 0 {
-			jsFilter.Set("authors", qjsStringArray(qjs, filter.Authors))
+		results := qjs.Array()
+		for _, event := range events {
+			results.Push(eventToJs(qjs, event))
 		}
-		if len(filter.Kinds) > 0 {
-			jsFilter.Set("kinds", qjsIntArray(qjs, filter.Kinds))
-		}
-		for tag, values := range filter.Tags {
-			jsFilter.Set("#"+tag, qjsStringArray(qjs, values))
-		}
-		if filter.Limit > 0 {
-			jsFilter.Set("limit", qjs.Int32(int32(filter.Limit)))
-		}
-		if filter.Since != nil {
-			jsFilter.Set("since", qjs.Int64(int64(*filter.Since)))
-		}
-		if filter.Until != nil {
-			jsFilter.Set("until", qjs.Int64(int64(*filter.Until)))
-		}
-		if filter.Search != "" {
-			jsFilter.Set("search", qjs.String(filter.Search))
-		}
-
-		return jsFilter
+		return results.ToValue()
 	})
+	relayObject.Set("query", queryFunc)
+	return relayObject
+}
+
+func makeAuthedUserString(ctx context.Context, qjs *quickjs.Context) quickjs.Value {
+	if pubkey := khatru.GetAuthed(ctx); pubkey != "" {
+		return qjs.String(pubkey)
+	} else {
+		return qjs.Null()
+	}
 }
 
 func runAndGetResult(scriptPath scriptPath, makeArgs ...func(qjs *quickjs.Context) quickjs.Value) (reject bool, msg string) {
@@ -162,20 +175,4 @@ ____grab(msg) // this will also handle the case in which 'msg' is a promise
 	}
 
 	return reject, msg
-}
-
-func qjsStringArray(qjs *quickjs.Context, src []string) quickjs.Value {
-	arr := qjs.Array()
-	for _, item := range src {
-		arr.Push(qjs.String(item))
-	}
-	return arr.ToValue()
-}
-
-func qjsIntArray(qjs *quickjs.Context, src []int) quickjs.Value {
-	arr := qjs.Array()
-	for _, item := range src {
-		arr.Push(qjs.Int32(int32(item)))
-	}
-	return arr.ToValue()
 }
