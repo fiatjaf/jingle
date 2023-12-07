@@ -5,7 +5,9 @@ import (
 	"fmt"
 	"net/http"
 	"os"
+	"os/signal"
 	"path/filepath"
+	"syscall"
 
 	"github.com/fiatjaf/eventstore"
 	"github.com/fiatjaf/eventstore/badger"
@@ -16,6 +18,7 @@ import (
 	"github.com/kelseyhightower/envconfig"
 	"github.com/nbd-wtf/go-nostr/nip11"
 	"github.com/rs/zerolog"
+	"golang.org/x/sync/errgroup"
 
 	"github.com/urfave/cli/v2"
 )
@@ -199,6 +202,7 @@ func main() {
 				return fmt.Errorf("failed to initialize database: %w", err)
 			}
 			wrapper = eventstore.RelayWrapper{Store: db}
+			defer db.Close()
 			log.Info().Msgf("storing data with %s under ./%s", s.DatabaseBackend, dbpath)
 
 			relay.StoreEvent = append(relay.StoreEvent, db.SaveEvent)
@@ -257,8 +261,17 @@ description:
 				localhost = "0.0.0.0"
 			}
 			log.Info().Msg("running on http://" + localhost + ":" + s.Port)
-			if err := http.ListenAndServe(s.Host+":"+s.Port, relay); err != nil {
-				return err
+			server := &http.Server{Addr: ":" + s.Port, Handler: relay}
+			ctx, cancel := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
+			defer cancel()
+			g, ctx := errgroup.WithContext(ctx)
+			g.Go(server.ListenAndServe)
+			g.Go(func() error {
+				<-ctx.Done()
+				return server.Shutdown(context.Background())
+			})
+			if err := g.Wait(); err != nil {
+				log.Debug().Err(err).Msg("exit reason")
 			}
 			return nil
 		},
