@@ -5,19 +5,20 @@ go 1.21.0
 toolchain go1.21.4
 
 require (
-	github.com/fiatjaf/eventstore v0.2.11
-	github.com/fiatjaf/khatru v0.1.1
+	github.com/fiatjaf/eventstore v0.2.14
+	github.com/fiatjaf/khatru v0.2.0
 	github.com/fiatjaf/quickjs-go v0.3.1
 	github.com/hoisie/mustache v0.0.0-20160804235033-6375acf62c69
 	github.com/kelseyhightower/envconfig v1.4.0
-	github.com/nbd-wtf/go-nostr v0.26.0
+	github.com/nbd-wtf/go-nostr v0.26.4
 	github.com/rs/zerolog v1.31.0
 	github.com/urfave/cli/v2 v2.25.7
+	golang.org/x/sync v0.0.0-20201020160332-67f06af15bc9
 )
 
 require (
+	github.com/PowerDNS/lmdb-go v1.9.2 // indirect
 	github.com/andybalholm/brotli v1.0.5 // indirect
-	github.com/bmatsuo/lmdb-go v1.8.0 // indirect
 	github.com/btcsuite/btcd/btcec/v2 v2.3.2 // indirect
 	github.com/btcsuite/btcd/chaincfg/chainhash v1.0.2 // indirect
 	github.com/cespare/xxhash/v2 v2.2.0 // indirect
