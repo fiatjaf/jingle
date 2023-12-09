@@ -5,12 +5,12 @@ go 1.21.0
 toolchain go1.21.4
 
 require (
-	github.com/fiatjaf/eventstore v0.2.14
+	github.com/fiatjaf/eventstore v0.2.16
 	github.com/fiatjaf/khatru v0.2.1
 	github.com/fiatjaf/quickjs-go v0.3.1
 	github.com/hoisie/mustache v0.0.0-20160804235033-6375acf62c69
 	github.com/kelseyhightower/envconfig v1.4.0
-	github.com/nbd-wtf/go-nostr v0.26.4
+	github.com/nbd-wtf/go-nostr v0.27.0
 	github.com/puzpuzpuz/xsync/v2 v2.5.1
 	github.com/rs/zerolog v1.31.0
 	github.com/urfave/cli/v2 v2.25.7
