@@ -6,7 +6,6 @@ import (
 	"path/filepath"
 	"runtime"
 
-	"github.com/fiatjaf/khatru"
 	"github.com/fiatjaf/quickjs-go"
 	"github.com/fiatjaf/quickjs-go/polyfill/pkg/console"
 	"github.com/fiatjaf/quickjs-go/polyfill/pkg/fetch"
@@ -22,9 +21,9 @@ const (
 )
 
 var defaultScripts = map[scriptPath]string{
-	REJECT_EVENT: `export default function (event, relay, authedUser) {
+	REJECT_EVENT: `export default function (event, relay, conn) {
   if (event.kind === 0) {
-    if (authedUser) {
+    if (conn.pubkey) {
       return null
     } else {
       return 'auth-required: please auth before publishing metadata'
@@ -42,8 +41,8 @@ var defaultScripts = map[scriptPath]string{
   })
   if (metadata.length === 0) return 'publish your metadata here first'
 }`,
-	REJECT_FILTER: `export default function (filter, relay, authedUser) {
-  if (!authedUser) return "auth-required: take a selfie and send it to the CIA"
+	REJECT_FILTER: `export default function (filter, relay, conn) {
+  if (!conn.pubkey) return "auth-required: take a selfie and send it to the CIA"
 
   return fetch(
     'https://www.random.org/integers/?num=1&min=1&max=9&col=1&base=10&format=plain&rnd=new'
@@ -64,7 +63,7 @@ func rejectEvent(ctx context.Context, event *nostr.Event) (reject bool, msg stri
 		// second argument: the relay object with goodies
 		func(qjs *quickjs.Context) quickjs.Value { return makeRelayObject(ctx, qjs) },
 		// third argument: the currently authenticated user
-		func(qjs *quickjs.Context) quickjs.Value { return makeAuthedUserString(ctx, qjs) },
+		func(qjs *quickjs.Context) quickjs.Value { return makeConnectionObject(ctx, qjs) },
 	)
 }
 
@@ -75,35 +74,8 @@ func rejectFilter(ctx context.Context, filter nostr.Filter) (reject bool, msg st
 		// second argument: the relay object with goodies
 		func(qjs *quickjs.Context) quickjs.Value { return makeRelayObject(ctx, qjs) },
 		// third argument: the currently authenticated user
-		func(qjs *quickjs.Context) quickjs.Value { return makeAuthedUserString(ctx, qjs) },
+		func(qjs *quickjs.Context) quickjs.Value { return makeConnectionObject(ctx, qjs) },
 	)
-}
-
-func makeRelayObject(ctx context.Context, qjs *quickjs.Context) quickjs.Value {
-	relayObject := qjs.Object()
-	queryFunc := qjs.Function(func(qjs *quickjs.Context, this quickjs.Value, args []quickjs.Value) quickjs.Value {
-		filterjs := args[0] // this is expected to be a nostr filter object
-		filter := filterFromJs(qjs, filterjs)
-		events, err := wrapper.QuerySync(ctx, filter)
-		if err != nil {
-			qjs.ThrowError(err)
-		}
-		results := qjs.Array()
-		for _, event := range events {
-			results.Push(eventToJs(qjs, event))
-		}
-		return results.ToValue()
-	})
-	relayObject.Set("query", queryFunc)
-	return relayObject
-}
-
-func makeAuthedUserString(ctx context.Context, qjs *quickjs.Context) quickjs.Value {
-	if pubkey := khatru.GetAuthed(ctx); pubkey != "" {
-		return qjs.String(pubkey)
-	} else {
-		return qjs.Null()
-	}
 }
 
 func runAndGetResult(scriptPath scriptPath, makeArgs ...func(qjs *quickjs.Context) quickjs.Value) (reject bool, msg string) {

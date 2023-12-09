@@ -1,11 +1,13 @@
 package main
 
 import (
+	"hash/maphash"
 	"net/http"
 	"os"
 	"path/filepath"
 	"strconv"
 	"strings"
+	"unsafe"
 )
 
 func getServiceBaseURL(r *http.Request) string {
@@ -40,4 +42,8 @@ func getIconURL(r *http.Request) string {
 		}
 	}
 	return ""
+}
+
+func pointerHasher[V any](_ maphash.Seed, k *V) uint64 {
+	return uint64(uintptr(unsafe.Pointer(k)))
 }

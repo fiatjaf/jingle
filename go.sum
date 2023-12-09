@@ -41,8 +41,8 @@ github.com/fasthttp/websocket v1.5.3 h1:TPpQuLwJYfd4LJPXvHDYPMFWbLjsT91n3GpWtCQt
 github.com/fasthttp/websocket v1.5.3/go.mod h1:46gg/UBmTU1kUaTcwQXpUxtRwG2PvIZYeA8oL6vF3Fs=
 github.com/fiatjaf/eventstore v0.2.14 h1:YhxhQaJweTIuIckfZQ4wTUZQ1IKPxX60/LV/1St+XaQ=
 github.com/fiatjaf/eventstore v0.2.14/go.mod h1:IpGfGcTBa0K7FUQEOJDBAxIhfgP7pf1TJDu9DShybMw=
-github.com/fiatjaf/khatru v0.2.0 h1:aSBh2yl2fS/3+2aA/kmAXtmRJ2f5iLHmstsWNDERlxk=
-github.com/fiatjaf/khatru v0.2.0/go.mod h1:reXIM06zBXmFWwM1qp9mW6jCWjxTkEbtObVEPm0jOXE=
+github.com/fiatjaf/khatru v0.2.1 h1:NlgjBYH7iJpjFyOJVNEX/E2I1v4d5+KINhA+VxgDr4o=
+github.com/fiatjaf/khatru v0.2.1/go.mod h1:DsiQEmQmb6/hTXV6/OMcF7C7h19u1tJG5zAgaQVjseY=
 github.com/fiatjaf/quickjs-go v0.3.1 h1:NZu3o/P3fGpwr1zfkwadjKm3EsWXEuSHJ4TV0FJ8Zas=
 github.com/fiatjaf/quickjs-go v0.3.1/go.mod h1:lYXCC+EmJ6YxXs128amkCmMXnimlO4dFCqY6fjwGC0M=
 github.com/go-sql-driver/mysql v1.6.0/go.mod h1:DCzpHaOWr8IXmIStZouvnhqoel9Qv2LBy8hT2VhHyBg=
@@ -133,6 +133,8 @@ github.com/russross/blackfriday/v2 v2.1.0 h1:JIOH55/0cWyOuilr9/qlrm0BSXldqnqwMsf
 github.com/russross/blackfriday/v2 v2.1.0/go.mod h1:+Rmxgy9KzJVeS9/2gXHxylqXiyQDYRxCVz55jmeOWTM=
 github.com/savsgio/gotils v0.0.0-20230208104028-c358bd845dee h1:8Iv5m6xEo1NR1AvpV+7XmhI4r39LGNzwUL4YpMuL5vk=
 github.com/savsgio/gotils v0.0.0-20230208104028-c358bd845dee/go.mod h1:qwtSXrKuJh/zsFQ12yEE89xfCrGKK63Rr7ctU/uCo4g=
+github.com/sebest/xff v0.0.0-20210106013422-671bd2870b3a h1:iLcLb5Fwwz7g/DLK89F+uQBDeAhHhwdzB5fSlVdhGcM=
+github.com/sebest/xff v0.0.0-20210106013422-671bd2870b3a/go.mod h1:wozgYq9WEBQBaIJe4YZ0qTSFAMxmcwBhQH0fO0R34Z0=
 github.com/stretchr/objx v0.1.0/go.mod h1:HFkY916IF+rwdDfMAkV7OtwuqBVzrE8GR6GFx+wExME=
 github.com/stretchr/objx v0.4.0/go.mod h1:YvHI0jy2hoMjB+UWwv71VJQ9isScKT/TqJzVSSt89Yw=
 github.com/stretchr/objx v0.5.0/go.mod h1:Yh+to48EsGEfYuaHDzXPcE3xhTkx73EhmCGUpEOglKo=

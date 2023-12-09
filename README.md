@@ -44,11 +44,22 @@ They both take 3 parameters, in the following order:
   - `event`: the event being written, for `reject-event.js`; or `filter`: the subscription filter, for `reject-filter.js`.
   - `relay`: an object with some fields:
     - `query()`, a function that can be called with any Nostr filter and will return an array of results with events (read from the local database)
-  - `authedUser`: either a string or `null`, if it's a string it will be the pubkey of a user who has performed `AUTH` with the relay
+    - `store`, an interface for storing ephemeral data (will be stored in memory and cleaned up when the server stops), provides these functions:
+      - `get(key)`
+      - `set(key, value)`
+      - `del(key)`
+  - `conn`: an object with some fields:
+    - `ip`, the IP address of the user, as a string
+    - `pubkey`, the public key of the user, as hex, if the user has performed authentication, otherwise `undefined`
+    - `getOpenSubscriptions()`, a function that returns an array of filters forall the subscriptions opened by this connection
+    - `store`, an interface for storing data associated with this connection, provides these functions:
+      - `get(key)`
+      - `set(key, value)`
+      - `del(key)`
 
 **Authentication requests**
 
-The functions can prompt a client to authenticate using the NIP-42 flow anytime by return a string that starts with `"auth-required: "` (and then some human-readable message afterwards). If the client performs an authentication and make a new request, the next time the same request comes the third parameter, `authedUser`, will be set.
+The functions can prompt a client to authenticate using the NIP-42 flow anytime by return a string that starts with `"auth-required: "` (and then some human-readable message afterwards). If the client performs an authentication and make a new request the `pubkey` will be set in the `conn` parameter.
 
 ### Other options
 

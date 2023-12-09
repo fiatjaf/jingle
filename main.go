@@ -216,6 +216,9 @@ func main() {
 			relay.RejectFilter = append(relay.RejectFilter,
 				rejectFilter,
 			)
+			relay.OnDisconnect = append(relay.OnDisconnect,
+				onDisconnect,
+			)
 
 			// other http handlers
 			log.Info().Msgf("checking for html and assets under ./%s/", s.CustomDirectory)
