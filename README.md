@@ -11,6 +11,10 @@ If you have a Go compiler you can install it with
 go install github.com/fiatjaf/jingle@latest
 ```
 
+### Docker
+There is a `Dockerfile` and a `sample-docker-compose.yml` file that you can use to run jingle in a docker container.
+
+
 Otherwise you can get a binary from the [releases](../../releases) page and then calling `chmod +x ...` on it.
 
 Then run it from the shell with `jingle` (or whatever is your binary called):
