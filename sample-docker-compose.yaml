@@ -1,0 +1,11 @@
+version: '3.8'
+
+services:
+  jingle:
+    container_name: jingle
+    build: .
+    volumes:
+      - ./data:/app/data
+      - ./stuff:/app/stuff
+    ports:
+      - "5577:5577"
