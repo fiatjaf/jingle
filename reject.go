@@ -136,8 +136,8 @@ func runAndGetResult(scriptPath scriptPath, makeArgs ...func(qjs *quickjs.Contex
 
 	// actually run it
 	val, err := qjs.Eval(`
-import rejectEvent from './` + string(scriptPath) + `'
-let msg = rejectEvent(...args)
+import reject from './` + string(scriptPath) + `'
+let msg = reject(...args)
 ____grab(msg) // this will also handle the case in which 'msg' is a promise
 	`)
 	defer val.Free()
