@@ -16,6 +16,7 @@ import (
 	"github.com/fiatjaf/khatru"
 	"github.com/hoisie/mustache"
 	"github.com/kelseyhightower/envconfig"
+	"github.com/nbd-wtf/go-nostr"
 	"github.com/nbd-wtf/go-nostr/nip11"
 	"github.com/rs/zerolog"
 	"golang.org/x/sync/errgroup"
@@ -41,7 +42,7 @@ var (
 	db      eventstore.Store
 	log     = zerolog.New(os.Stderr).Output(zerolog.ConsoleWriter{Out: os.Stdout}).With().Timestamp().Logger()
 	relay   = khatru.NewRelay()
-	wrapper eventstore.RelayInterface
+	wrapper nostr.RelayStore
 )
 
 const (
