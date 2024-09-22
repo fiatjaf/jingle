@@ -1,7 +1,7 @@
 jingle
 ======
 
-A Nostr relay that can be easily customized with The JavaScript.
+A Nostr relay that can be easily customized with a nice simple dynamic language.
 
 ## How to run it
 
@@ -31,21 +31,17 @@ This will create a `./data` and a `./stuff` directories under the current direct
 
 - `./data` is where your database will be placed, with all the Nostr events and indexes. By default it will be an SQLite database under `./data/sqlite`, but you can also specify `--db lmdb` or `--db badger` to use different storage mechanisms.
 - `./stuff` is where you should define your custom rules for rejecting events or queries and subscriptions. 2 JavaScript files will be created with example code in them, they are intended to be modified without having to restart the server. Other files can also be put in this directory. These are the possibilities:
-  - `reject-event.js`: this file should `export default` a function that is called on every `EVENT` message received should return a string with an error message when that event should be rejected and `null` or `undefined` when the event should be accepted.
-  - `reject-filter.js`: same as above, but refers to `REQ` messages instead.
+  - `reject-event.tengo`: this file should `export default` a function that is called on every `EVENT` message received should return a string with an error message when that event should be rejected and `null` or `undefined` when the event should be accepted.
+  - `reject-filter.tengo`: same as above, but refers to `REQ` messages instead.
   - `index.html` and other `.html` files: these will be served under the root of your relay HTTP server, if present, but they are not required.
   - `icon.png`, `icon.jpg` or `icon.gif`, if present, will be used as the relay NIP-11 icon.
 
-### More about `reject-event.js` and `reject-filter.js`
-
-**Promises**
-
-The functions exported from `reject-event.js` and `reject-filter.js` can also return `Promise(string)` or `Promise(null)` in order to reject or accept the requests, respectively.
+### More about `reject-event.tengo` and `reject-filter.tengo`
 
 **Function parameters**
 
 They both take 3 parameters, in the following order:
-  - `event`: the event being written, for `reject-event.js`; or `filter`: the subscription filter, for `reject-filter.js`.
+  - `event`: the event being written, for `reject-event.tengo`; or `filter`: the subscription filter, for `reject-filter.tengo`.
   - `relay`: an object with some fields:
     - `query()`, a function that can be called with any Nostr filter and will return an array of results with events (read from the local database)
     - `store`, an interface for storing ephemeral data (will be stored in memory and cleaned up when the server stops), provides these functions:

@@ -2,26 +2,21 @@ package main
 
 import (
 	"context"
-	"os"
-	"path/filepath"
-	"runtime"
 
-	"github.com/fiatjaf/quickjs-go"
-	"github.com/fiatjaf/quickjs-go/polyfill/pkg/console"
-	"github.com/fiatjaf/quickjs-go/polyfill/pkg/fetch"
-	"github.com/fiatjaf/quickjs-go/polyfill/pkg/timer"
+	"github.com/d5/tengo/v2"
+	"github.com/d5/tengo/v2/stdlib"
 	"github.com/nbd-wtf/go-nostr"
 )
 
 type scriptPath string
 
 const (
-	REJECT_EVENT  scriptPath = "reject-event.js"
-	REJECT_FILTER scriptPath = "reject-filter.js"
+	REJECT_EVENT  scriptPath = "reject-event.tengo"
+	REJECT_FILTER scriptPath = "reject-filter.tengo"
 )
 
 var defaultScripts = map[scriptPath]string{
-	REJECT_EVENT: `export default function (event, relay, conn) {
+	REJECT_EVENT: `export func(event, relay, conn) {
   if (event.kind === 0) {
     if (conn.pubkey) {
       return null
@@ -41,7 +36,7 @@ var defaultScripts = map[scriptPath]string{
   })
   if (metadata.length === 0) return 'publish your metadata here first'
 }`,
-	REJECT_FILTER: `export default function (filter, relay, conn) {
+	REJECT_FILTER: `export func(filter, relay, conn) {
   if (!conn.pubkey) return "auth-required: take a selfie and send it to the CIA"
 
   return fetch(
@@ -57,94 +52,49 @@ var defaultScripts = map[scriptPath]string{
 }
 
 func rejectEvent(ctx context.Context, event *nostr.Event) (reject bool, msg string) {
-	return runAndGetResult(REJECT_EVENT,
-		// first argument: the nostr event object we'll pass to the script
-		func(qjs *quickjs.Context) quickjs.Value { return eventToJs(qjs, event) },
-		// second argument: the relay object with goodies
-		func(qjs *quickjs.Context) quickjs.Value { return makeRelayObject(ctx, qjs) },
-		// third argument: the currently authenticated user
-		func(qjs *quickjs.Context) quickjs.Value { return makeConnectionObject(ctx, qjs) },
-	)
+	script := tengo.NewScript([]byte(`
+reject := import("` + REJECT_EVENT + `")
+res := reject(event, relay, conn)
+`))
+	script.SetImportDir(s.CustomDirectory)
+	script.SetImports(stdlib.GetModuleMap(stdlib.AllModuleNames()...))
+	script.Add("event", eventToTengo(event))
+	script.Add("relay", makeRelayObject(ctx))
+	script.Add("conn", makeConnectionObject(ctx))
+
+	compiled, err := script.RunContext(ctx)
+	if err != nil {
+		return true, "script failed to run: " + msg
+	}
+
+	res := compiled.Get("result")
+	if res.String() == "" {
+		return false, ""
+	} else {
+		return true, res.String()
+	}
 }
 
 func rejectFilter(ctx context.Context, filter nostr.Filter) (reject bool, msg string) {
-	return runAndGetResult(REJECT_FILTER,
-		// first argument: the nostr filter object we'll pass to the script
-		func(qjs *quickjs.Context) quickjs.Value { return filterToJs(qjs, filter) },
-		// second argument: the relay object with goodies
-		func(qjs *quickjs.Context) quickjs.Value { return makeRelayObject(ctx, qjs) },
-		// third argument: the currently authenticated user
-		func(qjs *quickjs.Context) quickjs.Value { return makeConnectionObject(ctx, qjs) },
-	)
-}
+	script := tengo.NewScript([]byte(`
+reject := import("` + REJECT_FILTER + `")
+res := reject(filter, relay, conn)
+`))
+	script.SetImportDir(s.CustomDirectory)
+	script.SetImports(stdlib.GetModuleMap(stdlib.AllModuleNames()...))
+	script.Add("filter", filterToTengo(filter))
+	script.Add("relay", makeRelayObject(ctx))
+	script.Add("conn", makeConnectionObject(ctx))
 
-func runAndGetResult(scriptPath scriptPath, makeArgs ...func(qjs *quickjs.Context) quickjs.Value) (reject bool, msg string) {
-	runtime.LockOSThread()
-	defer runtime.UnlockOSThread()
-
-	rt := quickjs.NewRuntime()
-	// defer rt.Close()
-
-	qjs := rt.NewContext()
-	// defer qjs.Close()
-
-	// inject fetch and setTimeout
-	fetch.InjectTo(qjs)
-	timer.InjectTo(qjs)
-	console.InjectTo(qjs)
-
-	// sane defaults
-	reject = true
-	msg = "failed to run policy script"
-
-	// function to get values back from js to here
-	qjs.Globals().Set("____grab", qjs.Function(func(qjs *quickjs.Context, this quickjs.Value, args []quickjs.Value) quickjs.Value {
-		if args[0].IsString() {
-			reject = true
-			msg = args[0].String()
-		} else if args[0].IsObject() && args[0].Has("then") {
-			args[0].Call("then", qjs.Function(func(qjs *quickjs.Context, this quickjs.Value, args []quickjs.Value) quickjs.Value {
-				if args[0].IsString() {
-					reject = true
-					msg = args[0].String()
-				} else {
-					reject = false
-				}
-				return qjs.Null()
-			}))
-			rt.ExecuteAllPendingJobs()
-		} else {
-			reject = false
-		}
-		return qjs.Undefined()
-	}))
-
-	// globals
-	args := qjs.Array()
-	for _, makeArg := range makeArgs {
-		args.Push(makeArg(qjs))
-	}
-	qjs.Globals().Set("args", args.ToValue())
-
-	// register module
-	code, err := os.ReadFile(filepath.Join(s.CustomDirectory, string(scriptPath)))
+	compiled, err := script.RunContext(ctx)
 	if err != nil {
-		log.Warn().Err(err).Str("script", string(scriptPath)).Msg("couldn't read policy file")
-		return true, "couldn't read policy file"
-	}
-	qjs.RegisterModule(string(scriptPath), code)
-
-	// actually run it
-	val, err := qjs.Eval(`
-import reject from './` + string(scriptPath) + `'
-let msg = reject(...args)
-____grab(msg) // this will also handle the case in which 'msg' is a promise
-	`)
-	defer val.Free()
-	if err != nil {
-		log.Warn().Err(err).Str("script", string(scriptPath)).Msg("error applying policy script")
-		return true, "error applying policy script"
+		return true, "script failed to run: " + msg
 	}
 
-	return reject, msg
+	res := compiled.Get("result")
+	if res.String() == "" {
+		return false, ""
+	} else {
+		return true, res.String()
+	}
 }
