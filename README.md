@@ -1,7 +1,7 @@
 jingle
 ======
 
-A Nostr relay that can be easily customized with a nice simple dynamic language.
+A Nostr relay that can be easily customized with a nice simple dynamic language: [Tengo](https://tengolang.com/).
 
 ## How to run it
 
@@ -10,14 +10,6 @@ If you have a Go compiler you can install it with
 ```
 go install github.com/fiatjaf/jingle@latest
 ```
-
-### Docker
-There is a `Dockerfile` and a `sample-docker-compose.yml` file that you can use to run jingle in a docker container.
-
-
-Otherwise you can get a binary from the [releases](../../releases) page and then calling `chmod +x ...` on it.
-
-Then run it from the shell with `jingle` (or whatever is your binary called):
 
 ```
 ~> jingle
@@ -30,8 +22,8 @@ INF running on http://0.0.0.0:5577
 This will create a `./data` and a `./stuff` directories under the current directory.
 
 - `./data` is where your database will be placed, with all the Nostr events and indexes. By default it will be an SQLite database under `./data/sqlite`, but you can also specify `--db lmdb` or `--db badger` to use different storage mechanisms.
-- `./stuff` is where you should define your custom rules for rejecting events or queries and subscriptions. 2 JavaScript files will be created with example code in them, they are intended to be modified without having to restart the server. Other files can also be put in this directory. These are the possibilities:
-  - `reject-event.tengo`: this file should `export default` a function that is called on every `EVENT` message received should return a string with an error message when that event should be rejected and `null` or `undefined` when the event should be accepted.
+- `./stuff` is where you should define your custom rules for rejecting events or queries and subscriptions. 2 Tengo files will be created with example code in them, they are intended to be modified without having to restart the server. Other files can also be put in this directory. These are the possibilities:
+  - `reject-event.tengo`: this file should `export default` a function that is called on every `EVENT` message received should return a string with an error message when that event should be rejected and `undefined` when the event should be accepted.
   - `reject-filter.tengo`: same as above, but refers to `REQ` messages instead.
   - `index.html` and other `.html` files: these will be served under the root of your relay HTTP server, if present, but they are not required.
   - `icon.png`, `icon.jpg` or `icon.gif`, if present, will be used as the relay NIP-11 icon.
@@ -49,9 +41,8 @@ They both take 3 parameters, in the following order:
       - `set(key, value)`
       - `del(key)`
   - `conn`: an object with some fields:
-    - `ip`, the IP address of the user, as a string
-    - `pubkey`, the public key of the user, as hex, if the user has performed authentication, otherwise `undefined`
-    - `getOpenSubscriptions()`, a function that returns an array of filters forall the subscriptions opened by this connection
+    - `get_ip()`, the IP address of the user, as a string
+    - `get_authed_pubkey()`, the public key of the user, as hex, if the user has performed authentication, otherwise `undefined`
     - `store`, an interface for storing data associated with this connection, provides these functions:
       - `get(key)`
       - `set(key, value)`
@@ -60,6 +51,18 @@ They both take 3 parameters, in the following order:
 **Authentication requests**
 
 The functions can prompt a client to authenticate using the NIP-42 flow anytime by return a string that starts with `"auth-required: "` (and then some human-readable message afterwards). If the client performs an authentication and make a new request the `pubkey` will be set in the `conn` parameter.
+
+**Tengo basics**
+
+Tengo is a very simple language, as you can see here: https://tengolang.com/
+
+It comes with these built-in functions: https://github.com/d5/tengo/blob/master/docs/builtins.md
+
+It also comes with a standard library that you can use with `import("<module-name>")` calls: https://github.com/d5/tengo/blob/master/docs/stdlib.md
+
+Besides these, we also ship an `http` module that can be imported in the same way. Currently it provides these functions:
+
+  - `http.get("<url>")` -> returns a `string`
 
 ### Other options
 
