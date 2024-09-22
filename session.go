@@ -13,11 +13,11 @@ import (
 var sessionStorage = xsync.NewTypedMapOf[*khatru.WebSocket, store](pointerHasher)
 
 type store struct {
-	data  map[string]any
+	data  map[string]tengo.Object
 	mutex sync.Mutex
 }
 
-var globalStore = store{data: make(map[string]any)}
+var globalStore = store{data: make(map[string]tengo.Object)}
 
 func onDisconnect(ctx context.Context) {
 	sessionStorage.Delete(khatru.GetConnection(ctx))
@@ -42,23 +42,48 @@ func makeRelayObject(ctx context.Context) tengo.Object {
 					return &EventIteratorWrapper{ch: ch}, nil
 				}),
 			},
-			// "store": map[string]any{
-			// 	"get": func(key string) any {
-			// 		globalStore.mutex.Lock()
-			// 		defer globalStore.mutex.Unlock()
-			// 		return globalStore.data[key]
-			// 	},
-			// 	"set": func(key string, value any) {
-			// 		globalStore.mutex.Lock()
-			// 		globalStore.data[key] = value
-			// 		globalStore.mutex.Unlock()
-			// 	},
-			// 	"del": func(key string) {
-			// 		globalStore.mutex.Lock()
-			// 		defer globalStore.mutex.Unlock()
-			// 		delete(globalStore.data, key)
-			// 	},
-			// },
+			"store": &tengo.Map{
+				Value: map[string]tengo.Object{
+					"get": &tengo.UserFunction{
+						Name: "store.get",
+						Value: tengo.CallableFunc(func(args ...tengo.Object) (tengo.Object, error) {
+							if len(args) < 1 {
+								return nil, fmt.Errorf("store.get() needs an argument")
+							}
+							key := args[0].String()
+							globalStore.mutex.Lock()
+							defer globalStore.mutex.Unlock()
+							return globalStore.data[key], nil
+						}),
+					},
+					"set": &tengo.UserFunction{
+						Name: "store.set",
+						Value: tengo.CallableFunc(func(args ...tengo.Object) (tengo.Object, error) {
+							if len(args) < 2 {
+								return nil, fmt.Errorf("store.get() needs two arguments")
+							}
+							key := args[0].String()
+							globalStore.mutex.Lock()
+							globalStore.data[key] = args[1]
+							globalStore.mutex.Unlock()
+							return nil, nil
+						}),
+					},
+					"del": &tengo.UserFunction{
+						Name: "store.del",
+						Value: tengo.CallableFunc(func(args ...tengo.Object) (tengo.Object, error) {
+							if len(args) < 1 {
+								return nil, fmt.Errorf("store.get() needs an argument")
+							}
+							key := args[0].String()
+							globalStore.mutex.Lock()
+							defer globalStore.mutex.Unlock()
+							delete(globalStore.data, key)
+							return nil, nil
+						}),
+					},
+				},
+			},
 		},
 	}
 }
@@ -86,32 +111,57 @@ func makeConnectionObject(ctx context.Context) tengo.Object {
 					return &tengo.String{Value: pubkey}, nil
 				}),
 			},
-			// "store": map[string]any{
-			// 	"get": func(key string) any {
-			// 		store, _ := sessionStorage.LoadOrCompute(khatru.GetConnection(ctx), func() store {
-			// 			return store{data: make(map[string]any)}
-			// 		})
-			// 		store.mutex.Lock()
-			// 		defer store.mutex.Unlock()
-			// 		return store.data[key]
-			// 	},
-			// 	"set": func(key string, value any) {
-			// 		store, _ := sessionStorage.LoadOrCompute(khatru.GetConnection(ctx), func() store {
-			// 			return store{data: make(map[string]any)}
-			// 		})
-			// 		store.mutex.Lock()
-			// 		store.data[key] = value
-			// 		store.mutex.Unlock()
-			// 	},
-			// 	"del": func(key string) {
-			// 		store, _ := sessionStorage.LoadOrCompute(khatru.GetConnection(ctx), func() store {
-			// 			return store{data: make(map[string]any)}
-			// 		})
-			// 		store.mutex.Lock()
-			// 		defer store.mutex.Unlock()
-			// 		delete(store.data, key)
-			// 	},
-			// },
+			"store": &tengo.Map{
+				Value: map[string]tengo.Object{
+					"get": &tengo.UserFunction{
+						Name: "store.get",
+						Value: tengo.CallableFunc(func(args ...tengo.Object) (tengo.Object, error) {
+							if len(args) < 1 {
+								return nil, fmt.Errorf("store.get() needs an argument")
+							}
+							key := args[0].String()
+							store, _ := sessionStorage.LoadOrCompute(khatru.GetConnection(ctx), func() store {
+								return store{data: make(map[string]tengo.Object)}
+							})
+							store.mutex.Lock()
+							defer store.mutex.Unlock()
+							return store.data[key], nil
+						}),
+					},
+					"set": &tengo.UserFunction{
+						Name: "store.set",
+						Value: tengo.CallableFunc(func(args ...tengo.Object) (tengo.Object, error) {
+							if len(args) < 2 {
+								return nil, fmt.Errorf("store.get() needs two arguments")
+							}
+							key := args[0].String()
+							store, _ := sessionStorage.LoadOrCompute(khatru.GetConnection(ctx), func() store {
+								return store{data: make(map[string]tengo.Object)}
+							})
+							store.mutex.Lock()
+							store.data[key] = args[1]
+							store.mutex.Unlock()
+							return nil, nil
+						}),
+					},
+					"del": &tengo.UserFunction{
+						Name: "store.del",
+						Value: tengo.CallableFunc(func(args ...tengo.Object) (tengo.Object, error) {
+							if len(args) < 1 {
+								return nil, fmt.Errorf("store.get() needs an argument")
+							}
+							key := args[0].String()
+							store, _ := sessionStorage.LoadOrCompute(khatru.GetConnection(ctx), func() store {
+								return store{data: make(map[string]tengo.Object)}
+							})
+							store.mutex.Lock()
+							defer store.mutex.Unlock()
+							delete(store.data, key)
+							return nil, nil
+						}),
+					},
+				},
+			},
 		},
 	}
 }
