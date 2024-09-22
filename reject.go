@@ -54,14 +54,17 @@ var defaultScripts = map[scriptPath]string{
 
   return "publish your metadata here first"
 }`,
-	REJECT_FILTER: `export func(filter, relay, conn) {
-  if (!conn.pubkey) {
+	REJECT_FILTER: `http := import("http")
+
+export func(filter, relay, conn) {
+  authed := conn.get_authed_pubkey()
+  if (!authed) {
     return "auth-required: take a selfie and send it to the CIA"
   }
 
-  random := get('https://www.random.org/integers/?num=1&min=1&max=9&col=1&base=10&format=plain&rnd=new')
+  random := http.get("https://www.random.org/integers/?num=1&min=1&max=9&col=1&base=10&format=plain&rnd=new")
   if int(random) > 4 {
-    return "you were not lucky enough: got ${res.trim()} but needed 4 or less"
+    return format("you were not lucky enough: got %d but needed 4 or less", int(random))
   }
 
   return undefined
@@ -131,8 +134,8 @@ func rejectFilter(ctx context.Context, filter nostr.Filter) (reject bool, msg st
 	}
 
 	var this *tengo.Compiled
-	if fstat.ModTime().After(lastRejectEventModtime) {
-		lastRejectEventModtime = fstat.ModTime()
+	if fstat.ModTime().After(lastRejectFilterModtime) {
+		lastRejectFilterModtime = fstat.ModTime()
 		script := tengo.NewScript([]byte(`
 reject := import("userscript")
 res := reject(filter, relay, conn)
@@ -154,14 +157,14 @@ res := reject(filter, relay, conn)
 		script.Add("relay", nil)
 		script.Add("conn", nil)
 
-		rejectEventCompiled, err = script.Compile()
+		rejectFilterCompiled, err = script.Compile()
 		if err != nil {
 			return true, "script is invalid: " + err.Error()
 		}
 
-		this = rejectEventCompiled.Clone()
+		this = rejectFilterCompiled.Clone()
 	} else {
-		this = rejectEventCompiled.Clone()
+		this = rejectFilterCompiled.Clone()
 	}
 
 	this.Set("filter", filterToTengo(filter))
