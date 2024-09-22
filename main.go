@@ -16,7 +16,6 @@ import (
 	"github.com/fiatjaf/khatru"
 	"github.com/hoisie/mustache"
 	"github.com/kelseyhightower/envconfig"
-	"github.com/nbd-wtf/go-nostr"
 	"github.com/nbd-wtf/go-nostr/nip11"
 	"github.com/rs/zerolog"
 	"golang.org/x/sync/errgroup"
@@ -31,18 +30,17 @@ type Settings struct {
 	RelayName        string `envconfig:"RELAY_NAME" default:"jinglebells"`
 	RelayPubkey      string `envconfig:"RELAY_PUBKEY" default:"79be667ef9dcbbac55a06295ce870b07029bfcdb2dce28d959f2815b16f81798"`
 	RelayDescription string `envconfig:"RELAY_DESCRIPTION" default:"an experimental relay"`
-	DatabaseBackend  string `envconfig:"DATABASE" default:"sqlite"`
+	DatabaseBackend  string `envconfig:"DATABASE" default:"badger"`
 	DatabaseURL      string `envconfig:"DATABASE_URL"`
 	CustomDirectory  string `envconfig:"DATA_DIRECTORY" default:"stuff"`
 	DataDirectory    string `envconfig:"SCRIPTS_DIRECTORY" default:"data"`
 }
 
 var (
-	s       Settings
-	db      eventstore.Store
-	log     = zerolog.New(os.Stderr).Output(zerolog.ConsoleWriter{Out: os.Stdout}).With().Timestamp().Logger()
-	relay   = khatru.NewRelay()
-	wrapper nostr.RelayStore
+	s     Settings
+	db    eventstore.Store
+	log   = zerolog.New(os.Stderr).Output(zerolog.ConsoleWriter{Out: os.Stdout}).With().Timestamp().Logger()
+	relay = khatru.NewRelay()
 )
 
 const (
@@ -202,7 +200,6 @@ func main() {
 			if err := db.Init(); err != nil {
 				return fmt.Errorf("failed to initialize database: %w", err)
 			}
-			wrapper = eventstore.RelayWrapper{Store: db}
 			defer db.Close()
 			log.Info().Msgf("storing data with %s under ./%s", s.DatabaseBackend, dbpath)
 
